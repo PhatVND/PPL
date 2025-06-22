@@ -66,7 +66,7 @@ VOID: 'void';
 WHILE: 'while';
 IN: 'in';
 
-NEWLINE: '\r'? '\n' { self.text = '\\n' };
+NEWLINE: '\r'? '\n' -> skip;
 
 // Arithmethic --------------------------------------------------------------------------
 ADD: '+';

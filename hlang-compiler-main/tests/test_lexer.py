@@ -84,3 +84,28 @@ def test_013():
     source = 'let greeting = "Hello, World!";'
     expected = 'let,greeting,=,"Hello, World!",;,EOF'
     assert Tokenizer(source).get_tokens_as_string() == expected  
+def test_014():
+    """Test operators and separators"""
+    source = """
+// This is a complete line comment
+let x = 42;        // End-of-line comment explaining variable
+
+// Multiple single-line comments
+// can be used to create
+// multi-line documentation
+
+func factorial(n: int) -> int {
+    // Base case: factorial of 0 or 1 is 1
+    if (n <= 1) {
+        return 1;   // Return base case value
+    }
+    // Recursive case: n! = n * (n-1)!
+    return n * factorial(n - 1);
+}
+
+// Commenting out code for debugging
+// let debugValue = computeExpensiveOperation();
+let result = simpleOperation();
+"""
+    expected = 'let,greeting,=,"Hello, World!",;,EOF'
+    assert Tokenizer(source).get_tokens_as_string() == expected  
