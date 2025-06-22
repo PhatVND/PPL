@@ -20,7 +20,7 @@ def emit(self):
             raise UncloseString(result.text[1:])
     elif tk == self.ILLEGAL_ESCAPE:
         result = super().emit()
-        raise IllegalEscape(result.text)
+        raise IllegalEscape(result.text[1:])
     elif tk == self.ERROR_CHAR:
         result = super().emit()
         raise ErrorToken(result.text)
@@ -117,7 +117,7 @@ FLOAT_LIT: REAL_NUM (EXPONENT_PART)?;
 fragment REAL_NUM: [0-9]+ '.' [0-9]*;
 fragment EXPONENT_PART: [eE] [+-]? [0-9]+;
 
-STRING_LIT: '"' CHARACTER* '"';
+STRING_LIT: '"' CHARACTER* '"' {self.text = self.text[1:-1]};
 fragment CHARACTER: (~["\\\r\n\u0080-\uFFFF] | ESCAPED_SEQ);
 
 fragment ESCAPED_SEQ:
@@ -141,9 +141,7 @@ ERROR_CHAR: . {raise ErrorToken(self.text)};
 UNCLOSE_STRING: '"' CHARACTER* ('\r\n' | '\n' | EOF);
 
 ILLEGAL_ESCAPE:
-	'"' CHARACTER* ESC_ILLEGAL {
-    raise IllegalEscape(self.text)
-};
+	'"' CHARACTER* ESC_ILLEGAL (~["\r\n"] )* ;
 fragment ESC_ILLEGAL: [\r] | '\\' ~[ntr"\\];
 
 /*----------------------------------       END LEXER       ------------------------------------ */

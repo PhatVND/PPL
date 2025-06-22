@@ -1,5 +1,7 @@
 from utils import Tokenizer
-
+import pytest
+from lexererr import UncloseString
+from lexererr import IllegalEscape 
 
 def test_001():
     """Test basic identifier tokenization"""
@@ -40,14 +42,20 @@ def test_006():
     """Test unclosed string literal error"""
     source = '"Hello World'
     expected = "Unclosed String: Hello World"
-    assert Tokenizer(source).get_tokens_as_string() == expected
+    # assert Tokenizer(source).get_tokens_as_string() == expected
+    with pytest.raises(UncloseString) as excinfo:
+        Tokenizer(source).get_tokens_as_string()
+    assert str(excinfo.value) == expected
 
 
 def test_007():
     """Test illegal escape sequence error"""
     source = '"Hello \\x World"'
     expected = "Illegal Escape In String: Hello \\x World"
-    assert Tokenizer(source).get_tokens_as_string() == expected
+    # assert Tokenizer(source).get_tokens_as_string() == expected
+    with pytest.raises(IllegalEscape) as excinfo:
+        Tokenizer(source).get_tokens_as_string()
+    assert str(excinfo.value) == expected
 
 
 def test_008():
@@ -60,7 +68,7 @@ def test_008():
 def test_009():
     """Test valid string literals with escape sequences"""
     source = '"Hello World" "Line 1\\nLine 2" "Quote: \\"text\\""'
-    expected = '"Hello World","Line 1\\nLine 2","Quote: \\"text\\"",EOF'
+    expected = 'Hello World,Line 1\\nLine 2,Quote: \\"text\\",EOF'
     assert Tokenizer(source).get_tokens_as_string() == expected
 
 
@@ -82,7 +90,7 @@ def test_012():
 def test_013():
     """Test operators and separators"""
     source = 'let greeting = "Hello, World!";'
-    expected = 'let,greeting,=,"Hello, World!",;,EOF'
+    expected = 'let,greeting,=,Hello, World!,;,EOF'
     assert Tokenizer(source).get_tokens_as_string() == expected  
 def test_014():
     """Test operators and separators"""
@@ -157,14 +165,14 @@ def test_016():
     source = """
 
 """
-    expected = 'func,complexCalculation,(,data,:,[,int,;,10,],),->,float,{,let,result,=,0.0,;,for,(,item,in,data,),{,result,=,result,+,float,(,item,),;,},return,result,/,10.0,;,},EOF'
+    expected = 'EOF'
     assert Tokenizer(source).get_tokens_as_string() == expected  
 def test_017():
     """Test operators and separators"""
     source = """
     let names = ["Alice", "Bob", "Charlie"]; 
 """
-    expected = 'let,names,=,[,"Alice",,,"Bob",,,"Charlie",],;,EOF'
+    expected = 'let,names,=,[,Alice,,,Bob,,,Charlie,],;,EOF'
     assert Tokenizer(source).get_tokens_as_string() == expected  
 def test_018():
     """Test operators and separators"""
@@ -197,5 +205,5 @@ func getPI() -> float { return 3.14159; }
 // Type: () -> float
 
 """
-    expected = 'func,multiply,(,x,:,int,,,y,:,int,),->,int,{,return,x,*,y,;,},func,greet,(,name,:,string,),->,void,{,print,(,"Hi ",+,name,),;,},func,getPI,(,),->,float,{,return,3.14159,;,},EOF'
+    expected = 'func,multiply,(,x,:,int,,,y,:,int,),->,int,{,return,x,*,y,;,},func,greet,(,name,:,string,),->,void,{,print,(,Hi ,+,name,),;,},func,getPI,(,),->,float,{,return,3.14159,;,},EOF'
     assert Tokenizer(source).get_tokens_as_string() == expected  
