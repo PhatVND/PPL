@@ -67,5 +67,20 @@ def test_009():
 def test_010():
     """Test operators and separators"""
     source = "+ - * / % == != < <= > >= && || ! = -> >> ( ) [ ] { } , ; :"
-    expected = "+,-,*,/,%,==,!=,<,<=,>,>=,&&,||,!,=,->,>>,],[,],{,},,;,:,EOF"
-    assert Tokenizer(source).get_tokens_as_string() == expected
+    expected = "+,-,*,/,%,==,!=,<,<=,>,>=,&&,||,!,=,->,>>,(,),[,],{,},,,;,:,EOF"
+    assert Tokenizer(source).get_tokens_as_string() == expected  
+def test_011():
+    """Test operators and separators"""
+    source = 'let msg = "Café";      // Compile error: non-ASCII in string'
+    expected = "let,msg,=,Error Token \""
+    assert Tokenizer(source).get_tokens_as_string() == expected  
+def test_012():
+    """Test operators and separators"""
+    source = "/* THIS IS COMMENT */"
+    expected = "EOF"
+    assert Tokenizer(source).get_tokens_as_string() == expected  
+def test_013():
+    """Test operators and separators"""
+    source = 'let greeting = "Hello, World!";'
+    expected = 'let,greeting,=,"Hello, World!",;,EOF'
+    assert Tokenizer(source).get_tokens_as_string() == expected  

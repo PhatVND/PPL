@@ -10,9 +10,14 @@ prev_token = None
 def emit(self):
     tk = self.type
 
-    if tk == self.UNCLOSE_STRING:       
+    if tk == self.UNCLOSE_STRING:
         result = super().emit()
-        raise UncloseString(result.text)
+        if len(result.text) >= 2 and result.text[-1] == '\n' and result.text[-2] == '\r':
+            raise UncloseString(result.text[1:-2])
+        elif result.text[-1] == '\n':
+            raise UncloseString(result.text[1:-1])
+        else:
+            raise UncloseString(result.text[1:])
     elif tk == self.ILLEGAL_ESCAPE:
         result = super().emit()
         raise IllegalEscape(result.text)
@@ -20,17 +25,7 @@ def emit(self):
         result = super().emit()
         raise ErrorToken(result.text)
     elif tk == self.NEWLINE:
-        if self.prev_token and self.prev_token.type in [
-            HlangLexer.ID, HlangLexer.INTEGER_LIT, HlangLexer.FLOAT_LIT,
-            HlangLexer.TRUE, HlangLexer.FALSE, HlangLexer.STRING_LIT, HlangLexer.NIL,
-            HlangLexer.INT, HlangLexer.FLOAT, HlangLexer.STRING, HlangLexer.BOOLEAN,
-            HlangLexer.RETURN, HlangLexer.CONTINUE, HlangLexer.BREAK,
-            HlangLexer.RPAREN, HlangLexer.RBRACK, HlangLexer.RBRACE
-        ]:
-            self.type = HlangLexer.SEMICOLON
-            self.text = ";"
-        else:
-            return self.nextToken()
+        result = super().emit()
 
     result = super().emit()
     self.prev_token = result
@@ -66,10 +61,14 @@ RANGE: 'range';
 NIL: 'nil';
 TRUE: 'true';
 FALSE: 'false';
+LET: 'let';
+VOID: 'void';
+WHILE: 'while';
+IN: 'in';
 
-NEWLINE: '\r'? '\n';
+NEWLINE: '\r'? '\n' { self.text = '\\n' };
 
-//TODO Operators 3.3.3 pdf --------------------------------------------------------------------------
+// Arithmethic --------------------------------------------------------------------------
 ADD: '+';
 SUB: '-';
 MUL: '*';
@@ -82,7 +81,8 @@ LESS: '<';
 LESS_EQUAL: '<=';
 GREATER: '>';
 GREATER_EQUAL: '>=';
-
+PIPELINE: '>>';
+ARROW: '->';
 AND: '&&';
 OR: '||';
 NOT: '!';
@@ -112,20 +112,15 @@ COLON: ':';
 ID: [a-zA-Z_] [a-zA-Z0-9_]*;
 
 //TODO Literals 3.3.5 pdf --------------------------------------------------------------------------
-INTEGER_LIT: DEC | BIN | OCT | HEX;
-// : DEC | BIN {self.text = str(int(self.text, 2));} | OCT {self.text = str(int(self.text, 8));} |
-// HEX {self.text = str(int(self.text, 16));};
-fragment DEC: '0' | [1-9] [0-9]*;
-fragment BIN: ('0b' | '0B') [0-1]+;
-fragment OCT: ('0o' | '0O') [0-7]+;
-fragment HEX: ('0x' | '0X') [0-9a-fA-F]+;
+INTEGER_LIT: [0-9]+;
 
 FLOAT_LIT: REAL_NUM (EXPONENT_PART)?;
 fragment REAL_NUM: [0-9]+ '.' [0-9]*;
 fragment EXPONENT_PART: [eE] [+-]? [0-9]+;
 
 STRING_LIT: '"' CHARACTER* '"';
-fragment CHARACTER: (~["\\\r\n] | ESCAPED_SEQ);
+fragment CHARACTER: (~["\\\r\n\u0080-\uFFFF] | ESCAPED_SEQ);
+
 fragment ESCAPED_SEQ:
 	'\\n'
 	| '\\t'
@@ -144,15 +139,7 @@ COMMENT_BLOCK:
 //TODO ERROR pdf BTL1 + lexererr.py -------------------------------------------------------------------
 ERROR_CHAR: . {raise ErrorToken(self.text)};
 
-UNCLOSE_STRING:
-	'"' CHARACTER* ('\r\n' | '\n' | EOF) { 
-    if(len(self.text) >= 2 and self.text[-1] == '\n' and self.text[-2] == '\r'):
-        raise UncloseString(self.text[:-2])
-    elif (self.text[-1] == '\n'):
-        raise UncloseString(self.text[:-1])
-    else:
-        raise UncloseString(self.text)
-};
+UNCLOSE_STRING: '"' CHARACTER* ('\r\n' | '\n' | EOF);
 
 ILLEGAL_ESCAPE:
 	'"' CHARACTER* ESC_ILLEGAL {
