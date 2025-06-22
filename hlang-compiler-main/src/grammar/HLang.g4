@@ -26,7 +26,6 @@ def emit(self):
         raise ErrorToken(result.text)
     elif tk == self.NEWLINE:
         result = super().emit()
-
     result = super().emit()
     self.prev_token = result
     return result

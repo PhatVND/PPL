@@ -107,5 +107,95 @@ func factorial(n: int) -> int {
 // let debugValue = computeExpensiveOperation();
 let result = simpleOperation();
 """
-    expected = 'let,greeting,=,"Hello, World!",;,EOF'
+    expected = 'let,x,=,42,;,func,factorial,(,n,:,int,),->,int,{,if,(,n,<=,1,),{,return,1,;,},return,n,*,factorial,(,n,-,1,),;,},let,result,=,simpleOperation,(,),;,EOF'
+    assert Tokenizer(source).get_tokens_as_string() == expected  
+def test_015():
+    """Test operators and separators"""
+    source = """
+/*
+ * Multi-line block comment
+ * describing the following function
+ * Author: John Doe
+ * Date: June 2025
+ */
+func complexCalculation(data: [int; 10]) -> float {
+    /* This algorithm implements the
+       advanced mathematical formula
+       discovered by Smith et al. */
+    
+    let result = 0.0;
+    /* Loop through all elements */ for (item in data) {
+        result = result + float(item);
+    }
+    return result / 10.0;  /* Calculate average */
+}
+
+/* Nested comments example */
+/*
+ * Outer comment begins here
+ * /* Inner comment can contain code:
+ *    let x = 42;
+ *    let y = x * 2;
+ * */ 
+ * Outer comment continues after inner ends
+ */
+
+/* Temporarily disable entire function
+func debugFunction() -> void {
+    print("Debug output");
+    /* Even nested comments work here
+       let temp = calculate();
+    */
+}
+*/
+
+"""
+    expected = 'func,complexCalculation,(,data,:,[,int,;,10,],),->,float,{,let,result,=,0.0,;,for,(,item,in,data,),{,result,=,result,+,float,(,item,),;,},return,result,/,10.0,;,},EOF'
+    assert Tokenizer(source).get_tokens_as_string() == expected  
+def test_016():
+    """Test operators and separators"""
+    source = """
+
+"""
+    expected = 'func,complexCalculation,(,data,:,[,int,;,10,],),->,float,{,let,result,=,0.0,;,for,(,item,in,data,),{,result,=,result,+,float,(,item,),;,},return,result,/,10.0,;,},EOF'
+    assert Tokenizer(source).get_tokens_as_string() == expected  
+def test_017():
+    """Test operators and separators"""
+    source = """
+    let names = ["Alice", "Bob", "Charlie"]; 
+"""
+    expected = 'let,names,=,[,"Alice",,,"Bob",,,"Charlie",],;,EOF'
+    assert Tokenizer(source).get_tokens_as_string() == expected  
+def test_018():
+    """Test operators and separators"""
+    source = """
+    let f = -x; 
+"""
+    expected = 'let,f,=,-,x,;,EOF'
+    assert Tokenizer(source).get_tokens_as_string() == expected  
+def test_019():
+    """Test operators and separators"""
+    source = """
+let stream = largeDataset >> 
+    filter(criteria) >> 
+    map(expensive_transform) >> 
+    take(5);  // Only processes first 5 valid items
+
+"""
+    expected = 'let,stream,=,largeDataset,>>,filter,(,criteria,),>>,map,(,expensive_transform,),>>,take,(,5,),;,EOF'
+    assert Tokenizer(source).get_tokens_as_string() == expected  
+def test_020():
+    """Test operators and separators"""
+    source = """
+func multiply(x: int, y: int) -> int { return x * y; }
+// Type: (int, int) -> int
+
+func greet(name: string) -> void { print("Hi " + name); }
+// Type: (string) -> void
+
+func getPI() -> float { return 3.14159; }
+// Type: () -> float
+
+"""
+    expected = 'func,multiply,(,x,:,int,,,y,:,int,),->,int,{,return,x,*,y,;,},func,greet,(,name,:,string,),->,void,{,print,(,"Hi ",+,name,),;,},func,getPI,(,),->,float,{,return,3.14159,;,},EOF'
     assert Tokenizer(source).get_tokens_as_string() == expected  
