@@ -81,16 +81,12 @@ OR: '||';
 NOT: '!';
 
 ASSIGN: '=';
-ASSIGN_STATE: ':=';
-ADD_ASSIGN: '+=';
-SUB_ASSIGN: '-=';
-MUL_ASSIGN: '*=';
-DIV_ASSIGN: '/=';
-MOD_ASSIGN: '%=';
+// Removed: ASSIGN_STATE, ADD_ASSIGN, SUB_ASSIGN, MUL_ASSIGN, DIV_ASSIGN, MOD_ASSIGN (not in HLang spec)
 
 DOT: '.';
 
 //TODO Separators 3.3.4 pdf --------------------------------------------------------------------------
+
 LPAREN: '(';
 RPAREN: ')';
 LBRACE: '{';
@@ -108,21 +104,17 @@ ID: [a-zA-Z_] [a-zA-Z0-9_]*;
 INTEGER_LIT: [0-9]+;
 
 FLOAT_LIT: REAL_NUM (EXPONENT_PART)?;
-fragment REAL_NUM: [0-9]+ '.' [0-9]*;
+fragment REAL_NUM:
+	[0-9]+ '.' [0-9]*; // Reverted to simpler form as per common spec interpretation
 fragment EXPONENT_PART: [eE] [+-]? [0-9]+;
 
 STRING_LIT: '"' CHARACTER* '"' {self.text = self.text[1:-1]};
 fragment CHARACTER: (~["\\\r\n\u0080-\uFFFF] | ESCAPED_SEQ);
 
-fragment ESCAPED_SEQ:
-	'\\n'
-	| '\\t'
-	| '\\r'
-	| '\\"'
-	| '\\\\'; // hoặc: fragment ESCAPED_SEQ: [\n\t\r\"\\];
+fragment ESCAPED_SEQ: '\\n' | '\\t' | '\\r' | '\\"' | '\\\\';
 
 //TODO skip 3.1 and 3.2 pdf --------------------------------------------------------------------------
-WS: [ \t\f\r]+ -> skip; // (Xem TOKEN: NEWLINE)
+WS: [ \t\f\r]+ -> skip;
 
 //TODO Comment 3.2 pdf --------------------------------------------------------------------------
 COMMENT_INLINE: '//' (~[\n\r])* -> skip;
@@ -135,46 +127,76 @@ ERROR_CHAR: . {raise ErrorToken(self.text)};
 UNCLOSE_STRING: '"' CHARACTER* ('\r\n' | '\n' | EOF);
 
 ILLEGAL_ESCAPE:
-	'"' CHARACTER* ESC_ILLEGAL (~["\r\n"] )* ;
+	'"' (~["\\\r\n] | ESCAPED_SEQ)* ESC_ILLEGAL (~["\r\n])*;
 fragment ESC_ILLEGAL: [\r] | '\\' ~[ntr"\\];
 
-/*----------------------------------       END LEXER       ------------------------------------ */
+/*----------------------------------        END LEXER         ------------------------------------ */
 /* =========================================================================================== */
 
 /* =========================================================================================== */
-///////////////////////////////         P A S E R          //////////////////////////////////////
+///////////////////////////////         N E W 		U P D A T E           ///////////////////////////////////////
+
+/* Thêm pipeline ở expression,
+ sửa LET ở variables_declared,
+ Hàm cho phép rỗng (nullable),
+ chỉnhsửa ở list_statement_prime
+ )?;
+ Sửa function_declared
+ để
+ thê trường hợp <>
+ 
+ Cập nhật
+ thêm
+ function type
+ 
+ 
+ Add hàm không tên?
+ */
+/* =========================================================================================== */
+
+/* =========================================================================================== */
+///////////////////////////////         P A S E R           ///////////////////////////////////////
 /* =========================================================================================== */
 
 // Program definition --------------------------------------------------------------------------
 program: declared_statement_list EOF;
 
-declared_statement_list: (declared_statement) (
-		declared_statement_list
-	)
-	| (declared_statement);
-
+declared_statement_list: (declared_statement | statement) declared_statement_list
+	| (declared_statement | statement);
 //TODO Literal 6.6 pdf --------------------------------------------------------------------------
-literal:
-	literal_primitive
-	| array_lit_instance
-	| struct_lit_instance;
+literal: literal_primitive | array_literal;
+// struct_lit_instance removed as struct_declared is removed --- ADD NEW ARRAY_LITERAL
 
 literal_primitive:
 	INTEGER_LIT
 	| FLOAT_LIT
 	| STRING_LIT
 	| TRUE
-	| FALSE
-	| NIL;
+	| FALSE;
+// NIL removed as not in spec
 
-mytype: ID | primitive_type | array_type;
-primitive_type: INT | FLOAT | BOOLEAN | STRING;
-array_type: (array_dimention) (ID | primitive_type);
+// NEW UPDATE, FUNCTION_TYPE HERE
+mytype:
+	ID
+	| primitive_type
+	| array_type
+	| LPAREN mytype RPAREN
+	| mytype ARROW mytype;
+
+primitive_type: INT | FLOAT | BOOL | STRING | VOID;
+array_type: (array_dimention) (ID | primitive_type)
+	| LBRACK mytype SEMICOLON INTEGER_LIT RBRACK (
+		array_dimention
+	)?;
 array_dimention: (array_dimention_element) (array_dimention)
 	| array_dimention_element;
-array_dimention_element: LBRACK (INTEGER_LIT | ID) RBRACK;
+array_dimention_element:
+	LBRACK INTEGER_LIT RBRACK; // ID removed, only INTEGER_LIT for size
 
-array_lit_instance: array_type LBRACE list_array_value RBRACE;
+// array_lit_instance -> array_literal, add Dạng [1, 2, 3]
+array_literal:
+	LBRACK (expression (COMMA expression)*)? RBRACK // Dạng [1,2,3]
+	| array_type LBRACE (expression (COMMA expression)*)? RBRACE; // Dạng [3]int{1,2,3}
 // Array_type + giá trị // Example:  [2][3]int {{1,2,3}, {4,5,6}
 list_array_value: (list_array_value_element) COMMA (
 		list_array_value
@@ -183,23 +205,20 @@ list_array_value: (list_array_value_element) COMMA (
 list_array_value_element:
 	ID
 	| literal_primitive
-	| struct_lit_instance
 	| LBRACE list_array_value RBRACE;
 
-struct_lit_instance: ID LBRACE struct_lit_instance_body RBRACE;
-// Struct_type + giá trị // Example:   Person{name: "Alice", age: 30}  
-struct_lit_instance_body: struct_lit_instance_body_prime |;
-struct_lit_instance_body_prime:
-	struct_lit_instance_body_element COMMA struct_lit_instance_body_prime
-	| struct_lit_instance_body_element;
-struct_lit_instance_body_element: ID COLON expression;
+// Removed struct_lit_instance and all related struct literal rules (not in spec)
 
 // TODO 5.2 Expressions 6 pdf ---------------------------------------------------------------------
 list_expression: list_expression_prime |;
 list_expression_prime:
 	expression COMMA list_expression_prime
 	| expression;
-expression: expression OR expression1 | expression1;
+// ADD PIPELINE
+expression:
+	expression PIPELINE expression1
+	| expression OR expression1
+	| expression1;
 expression1: expression1 AND expression2 | expression2;
 expression2:
 	expression2 EQUAL expression3
@@ -223,39 +242,35 @@ expression6:
 	expression6 (
 		LBRACK expression RBRACK
 	) // 6.4 pdf --> Accessing array elements. VD:  a[2][3], b[4] ...
-	| expression6 DOT ID // 6.5 pdf --> Accessing struct fields. VD:  person.name,  person.age.b ...
-	| expression6 DOT (
-		function_call
-	) // Method call //person.age.b.a()
 	| function_call // Function call
 	| ID
+	| primitive_type
+	| anonymous_function
 	| literal
 	| expression7;
+// HÀM KHÔNG TÊN
+anonymous_function:
+	FUNC parameter_list (ARROW mytype)? function_body_container;
 expression7: LPAREN expression RPAREN;
 
 function_call:
 	ID LPAREN list_expression RPAREN; // 6.7.1 Function call
-method_call:
-	temp_expression6 DOT (function_call); // 6.7.2 Method call
 
-temp_expression6:
-	temp_expression6 (LBRACK expression RBRACK)
-	| temp_expression6 DOT ID
-	| temp_expression6 DOT function_call
-	| function_call
-	| ID;
+// Removed method_call and temp_expression6 rules (not in spec)
 
 //TODO Statement 5 and 4 pdf ----------------------------------------------------------------------
 list_statement: list_statement_prime |;
-list_statement_prime:
-	statement (list_statement_prime)
-	| statement;
+list_statement_prime: (
+		statement list_statement_prime
+		| statement
+	)?;
 
 statement:
 	declared_statement
 	| assignment_statement
 	| if_statement
 	| for_statement
+	| while_statement
 	| break_statement
 	| continue_statement
 	| call_statement
@@ -265,82 +280,56 @@ statement:
 declared_statement:
 	variables_declared
 	| constants_declared
-	| function_declared
-	| method_declared
-	| struct_declared
-	| interface_declared;
+	| function_declared;
+// Removed method_declared, struct_declared, interface_declared (not in spec)
+
+// Add while statement
+while_statement:
+	WHILE LPAREN expression RPAREN function_body_container;
 
 variables_declared:
-	VAR ID (
-		(mytype ASSIGN expression)
+	LET ID (
+		// VAR changed to LET
+		COLON mytype ASSIGN expression
+		| (mytype ASSIGN expression)
 		| mytype
 		| ASSIGN expression
 	) SEMICOLON;
 variables_declared_without_semi_for_loop:
-	VAR ID mytype? ASSIGN expression;
+	LET ID mytype? ASSIGN expression; // VAR changed to LET
 
-constants_declared: CONST ID ASSIGN expression SEMICOLON;
-
+constants_declared:
+	CONST ID (COLON mytype)? ASSIGN expression SEMICOLON?;
 function_declared:
-	FUNC ID (interface_parameter_container) (mytype)? (
-		function_body_container
-	) SEMICOLON;
+	FUNC ID generic_parameter_list? parameter_list (ARROW mytype)? function_body_container SEMICOLON
+		?;
+generic_parameter_list: LESS ID (COMMA ID)* GREATER;
+
 function_body_container: LBRACE list_statement_prime RBRACE;
 
-method_declared:
-	FUNC (receiver_container) ID (interface_parameter_container) (
-		mytype
-	)? (function_body_container) SEMICOLON;
-receiver_container: LPAREN ID ID RPAREN;
-
-struct_declared:
-	TYPE ID STRUCT (LBRACE struct_declared_body RBRACE) SEMICOLON;
-struct_declared_body: (struct_declared_body_element) (
-		struct_declared_body
-	)
-	| (struct_declared_body_element);
-struct_declared_body_element: ID (mytype) SEMICOLON;
-
-interface_declared:
-	TYPE ID INTERFACE (LBRACE interface_declared_body RBRACE) SEMICOLON;
-interface_declared_body: (interface_declared_element) (
-		interface_declared_body
-	)
-	| (interface_declared_element);
-interface_declared_element:
-	ID (interface_parameter_container) (mytype)? SEMICOLON;
-interface_parameter_container:
-	LPAREN list_interface_parameter RPAREN;
-list_interface_parameter: list_interface_parameter_prime |;
-list_interface_parameter_prime:
-	list_interface_parameter_element COMMA list_interface_parameter_prime
-	| list_interface_parameter_element;
-list_interface_parameter_element: ID (COMMA ID)* (mytype);
+// New parameter rule for functions
+parameter_list: LPAREN (parameter (COMMA parameter)*)? RPAREN;
+parameter: ID COLON mytype;
 
 //TODO assign_statement --------------------------------------------------------------------------
-assignment_statement: (lhs_assignment_statement) (
-		assignment_operator
-	) (expression) SEMICOLON;
-assignment_operator:
-	ASSIGN_STATE
-	| ADD_ASSIGN
-	| SUB_ASSIGN
-	| MUL_ASSIGN
-	| DIV_ASSIGN
-	| MOD_ASSIGN;
+assignment_statement: (lhs_assignment_statement) ASSIGN (
+		expression
+	) SEMICOLON; // Only ASSIGN allowed
+// assignment_operator rule removed as only ASSIGN is allowed.
+
 lhs_assignment_statement:
 	ID
-	| lhs_assignment_statement (LBRACK expression RBRACK)
-	| lhs_assignment_statement DOT ID;
+	| lhs_assignment_statement (LBRACK expression RBRACK);
+// lhs_assignment_statement DOT ID removed (as structs are removed)
 
 assignment_statement_without_semi_for_loop:
-	ID (assignment_operator) (expression);
+	ID ASSIGN (expression); // Only ASSIGN allowed
 
 // TODO if_statement: --------------------------------------------------------------------------
 if_statement:
 	IF (LPAREN expression RPAREN) (function_body_container) (
 		else_if_clause
-	)? (else_clause)? SEMICOLON;
+	)? (else_clause)?; // SEMICOLON removed
 else_if_clause: (else_if_clause_content) else_if_clause
 	| (else_if_clause_content);
 else_if_clause_content:
@@ -349,23 +338,12 @@ else_if_clause_content:
 else_clause: ELSE function_body_container;
 
 // TODO for_statement: --------------------------------------------------------------------------
-for_statement: (
-		array_for_loop
-		| initialization_for_loop
-		| basic_for_loop
-	) SEMICOLON;
-basic_for_loop: FOR expression (function_body_container);
-initialization_for_loop:
-	FOR (
-		variables_declared_without_semi_for_loop
-		| assignment_statement_without_semi_for_loop
-	) SEMICOLON (expression) SEMICOLON (
-		assignment_statement_without_semi_for_loop
-	) (function_body_container);
-array_for_loop:
-	FOR (ID) COMMA (ID ASSIGN_STATE RANGE expression) (
-		function_body_container
-	);
+for_statement: for_in_loop; // Simplified to only for-in loop
+
+// New rule for for-in loop as per HLang spec
+for_in_loop:
+	FOR LPAREN ID IN expression RPAREN function_body_container;
+// Removed initialization_for_loop, basic_for_loop, array_for_loop (not in spec)
 
 // TODO break_statement: ------------------------------------------------------------------------
 break_statement: BREAK SEMICOLON;
@@ -374,10 +352,10 @@ break_statement: BREAK SEMICOLON;
 continue_statement: CONTINUE SEMICOLON;
 
 // TODO call_statement: --------------------------------------------------------------------------
-call_statement: (function_call | method_call) SEMICOLON;
+call_statement: function_call SEMICOLON; // method_call removed
 
 // TODO return_statement: ------------------------------------------------------------------------
 return_statement: RETURN expression? SEMICOLON;
 
-/*----------------------------------       END PARSER       ------------------------------------ */
+/*----------------------------------        END PARSER         ------------------------------------ */
 /* ============================================================================================= */
