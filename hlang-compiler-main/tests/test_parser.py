@@ -432,3 +432,561 @@ arr[0] = 42;              // Array element assignment
 """
     expected = "success"
     assert Parser(source).parse() == expected
+def test_034():
+    """Test complex expression with pipeline operator"""
+    source = """let age: int = 25;                    // Explicit type annotation
+let name = "Alice";                   // Type inferred as string
+let pi = 3.14159;                     // Type inferred as float
+let numbers = [1, 2, 3, 4, 5];       // Type inferred as [int; 5]
+let isValid: bool = checkInput();     // Type annotation with function call
+
+// Shadowing example:
+let x = 10;                           // Outer x (int)
+{
+    let x = "hello";                  // Inner x (string) - shadows outer x
+    // Inner x is accessible here
+}
+// Outer x is accessible again here
+
+
+"""
+    expected = "success"
+    assert Parser(source).parse() == expected
+def test_035():
+    """Test complex expression with pipeline operator"""
+    source = """// Variable assignment:
+let x: int = 10;
+x = 20;                              // Simple assignment
+x = x + 5;                           // Self-referential assignment
+
+// Array element assignment:
+let numbers: [int; 3] = [1, 2, 3];
+numbers[0] = 10;                     // Single element
+numbers[1] = numbers[2] + 5;         // Expression assignment
+
+// Multi-dimensional assignment:
+let matrix: [[int; 2]; 2] = [[1, 2], [3, 4]];
+matrix[0][1] = 99;                   // 2D array assignment
+
+// Error cases:
+const PI = 3.14159;
+// PI = 2.71828;                     // Error: cannot assign to const
+// numbers[5] = 10;                  // Runtime error: index out of bounds
+
+
+"""
+    expected = "success"
+    assert Parser(source).parse() == expected
+def test_036():
+    """Test complex expression with pipeline operator"""
+    source = """// Simple if statement:
+if (age >= 18) {
+    print("Adult");
+}
+
+// If-else statement:
+if (score >= 90) {
+    grade = "A";
+} else {
+    grade = "B";
+}
+
+// Multiple conditions:
+if (temperature > 30) {
+    print("Hot weather");
+} else if (temperature > 20) {
+    print("Warm weather");
+} else if (temperature > 10) {
+    print("Cool weather");
+} else {
+    print("Cold weather");
+}
+
+// Nested conditionals:
+if (user.isLoggedIn) {
+    if (user.isAdmin) {
+        showAdminPanel();
+    } else {
+        showUserPanel();
+    }
+}
+
+// Complex conditions:
+if ((age >= 18 && hasLicense) || isEmergency) {
+    allowDriving = true;
+}
+
+
+"""
+    expected = "success"
+    assert Parser(source).parse() == expected
+def test_037():
+    """Test complex expression with pipeline operator"""
+    source = """// Basic counting loop:
+let i = 0;
+while (i < 10) {
+    print("Count: " + str(i));
+    i = i + 1;
+}
+
+// Input validation loop:
+let input: string;
+while (input != "quit") {
+    input = getUserInput();
+    processInput(input);
+}
+
+// Infinite loop (requires break to exit):
+while (true) {
+    let command = getCommand();
+    if (command == "exit") {
+        break;
+    }
+    executeCommand(command);
+}
+
+
+
+"""
+    expected = "success"
+    assert Parser(source).parse() == expected
+def test_038():
+    """Test complex expression with pipeline operator"""
+    source = """// Array iteration:
+let numbers = [1, 2, 3, 4, 5];
+for (num in numbers) {
+    print("Number: " + str(num));
+}
+
+// String iteration (if strings are iterable):
+let text = "Hello";
+for (char in text) {
+    print("Character: " + char);
+}
+
+// Multi-dimensional array iteration:
+let matrix = [[1, 2], [3, 4], [5, 6]];
+for (row in matrix) {
+    for (element in row) {
+        print(str(element));
+    }
+}
+
+// Processing with conditions:
+let scores = [85, 92, 78, 96, 88];
+for (score in scores) {
+    if (score >= 90) {
+        print("Excellent: " + str(score));
+    }
+}
+
+"""
+    expected = "success"
+    assert Parser(source).parse() == expected
+def test_039():
+    """Test complex expression with pipeline operator"""
+    source = """// Early loop termination:
+let numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+for (num in numbers) {
+    if (num > 5) {
+        break;  // Exit loop when number exceeds 5
+    }
+    print(str(num));
+}
+// Prints: 1, 2, 3, 4, 5
+
+// Search with early exit:
+let found = false;
+let target = 7;
+for (value in data) {
+    if (value == target) {
+        found = true;
+        break;  // Stop searching once found
+    }
+}
+
+"""
+    expected = "success"
+    assert Parser(source).parse() == expected
+def test_040():
+    """Test complex expression with pipeline operator"""
+    source = """// Skip even numbers:
+for (i in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
+    if (i % 2 == 0) {
+        continue;  // Skip even numbers
+    }
+    print("Odd: " + str(i));
+}
+// Prints: Odd: 1, Odd: 3, Odd: 5, Odd: 7, Odd: 9
+
+// Data filtering:
+for (item in dataList) {
+    if (!isValid(item)) {
+        continue;  // Skip invalid items
+    }
+    processItem(item);
+}
+
+
+"""
+    expected = "success"
+    assert Parser(source).parse() == expected
+def test_041():
+    """Test complex expression with pipeline operator"""
+    source = """// Void function return:
+func printGreeting(name: string) -> void {
+    if (name == "") {
+        return;  // Early return for empty name
+    }
+    print("Hello, " + name + "!");
+}
+
+// Non-void function return:
+func factorial(n: int) -> int {
+    if (n <= 1) {
+        return 1;  // Base case
+    }
+    return n * factorial(n - 1);  // Recursive case
+}
+
+// Multiple return paths:
+func findMax(a: int, b: int) -> int {
+    if (a > b) {
+        return a;
+    } else {
+        return b;
+    }
+    // All paths must return a value
+}
+
+// Early return pattern:
+func processUser(user: User) -> bool{
+    if (!user.isValid()) {
+        return false;  // Early failure return
+    }
+    
+    if (!user.hasPermission()) {
+        return false;  // Another early return
+    }
+    
+    // Main processing logic
+    user.process();
+    return true;  // Success return
+}
+
+
+
+"""
+    expected = "success"
+    assert Parser(source).parse() == expected
+def test_042():
+    """Test complex expression with pipeline operator"""
+    source = """// Explicit block for scoping:
+{
+    let tempVar = computeValue();
+    let result = processValue(tempVar);
+    // tempVar and result are not accessible outside this block
+}
+
+// Nested scoping:
+let x = 10;
+{
+    let y = 20;
+    {
+        let z = 30;
+        // x, y, z all accessible here
+        let x = 100;  // Shadows outer x
+        // Here: x = 100, y = 20, z = 30
+    }
+    // Here: x = 10 (original), y = 20, z not accessible
+}
+// Here: only x = 10 accessible
+
+
+
+"""
+    expected = "success"
+    assert Parser(source).parse() == expected
+def test_043():
+    """Test complex expression with pipeline operator"""
+    source = """// Function with multiple parameters:
+func add(a: int, b: int) -> int {
+    return a + b;
+}
+
+// Function with no parameters:
+func getCurrentTime() -> string {
+    return getSystemTime();
+}
+
+// Void function:
+func printGreeting(name: string) -> void {
+    print("Hello, " + name + "!");
+}
+
+// Function with array parameter:
+func sumArray(numbers: [int; 5]) -> int {
+    let total = 0;
+    for (num in numbers) {
+        total = total + num;
+    }
+    return total;
+}
+
+// Function with mixed parameter types:
+func formatScore(name: string, score: int, isPassing: bool) -> string {
+    let status = isPassing ? "PASS" : "FAIL";
+    return name + ": " + str(score) + " (" + status + ")";
+}
+
+
+"""
+    expected = "success"
+    assert Parser(source).parse() == expected
+def test_044():
+    """Test complex expression with pipeline operator"""
+    source = """func multiply(x: int, y: int) -> int { return x * y; }
+// Type: (int, int) -> int
+
+func greet(name: string) -> void { print("Hi " + name); }
+// Type: (string) -> void
+
+func getPI() -> float { return 3.14159; }
+// Type: () -> float
+
+
+"""
+    expected = "success"
+    assert Parser(source).parse() == expected
+def test_045():
+    """Test complex expression with pipeline operator"""
+    source = """func modifyInt(x: int) -> void {
+    x = 100;  // Only modifies local parameter copy
+}
+
+let value = 42;
+modifyInt(value);
+// value is still 42 after function call
+
+"""
+    expected = "success"
+    assert Parser(source).parse() == expected
+def test_046():
+    """Test complex expression with pipeline operator"""
+    source = """func processString(text: string) -> string {
+    // Cannot modify text parameter directly
+    return text + " processed";
+}
+
+let original = "data";
+let result = processString(original);
+// original remains "data", result is "data processed"
+
+"""
+    expected = "success"
+    assert Parser(source).parse() == expected
+def test_047():
+    """Test complex expression with pipeline operator"""
+    source = """func fillArray(arr: [int; 3], value: int) -> void {
+    for (i in [0, 1, 2]) {
+        arr[i] = value;  // Modifies original array
+    }
+}
+
+let numbers = [1, 2, 3];
+fillArray(numbers, 99);
+// numbers is now [99, 99, 99]
+
+"""
+    expected = "success"
+    assert Parser(source).parse() == expected
+def test_048():
+    """Test complex expression with pipeline operator"""
+    source = """let globalConst = 100;  // Global scope
+
+func example(param: int) -> int {
+    // param is function-scoped
+    let localVar = param * 2;  // Function-scoped local variable
+    
+    {
+        let blockVar = localVar + 1;  // Block-scoped variable
+        if (blockVar > 10) {
+            let conditionVar = blockVar / 2;  // Conditional block scope
+            return conditionVar;
+        }
+        // conditionVar not accessible here
+    }
+    // blockVar not accessible here
+    
+    return localVar + globalConst;  // Can access global const
+}
+
+"""
+    expected = "success"
+    assert Parser(source).parse() == expected
+def test_049():
+    """Test complex expression with pipeline operator"""
+    source = """// Valid: All paths return
+func absoluteValue(x: int) -> int {
+    if (x >= 0) {
+        return x;     // Path 1: return positive value
+    } else {
+        return -x;    // Path 2: return negated value
+    }
+    // Both paths covered
+}
+
+// Valid: Single return path
+func factorial(n: int) -> int {
+    if (n <= 1) {
+        return 1;
+    }
+    return n * factorial(n - 1);
+}
+
+// Error: Missing return on some paths
+func badFunction(x: int) -> int {
+    if (x > 0) {
+        return x;
+    }
+    // Error: No return for x <= 0 case
+}
+
+// Valid: Void function with early return
+func printPositive(x: int) -> void {
+    if (x <= 0) {
+        return;  // Early exit for non-positive values
+    }
+    print("Positive: " + str(x));
+}
+
+"""
+    expected = "success"
+    assert Parser(source).parse() == expected
+def test_050():
+    """Test complex expression with pipeline operator"""
+    source = """func factorial(n: int) -> int {
+    if (n <= 1) {
+        return 1;                    // Base case
+    }
+    return n * factorial(n - 1);     // Recursive call
+}
+
+func fibonacci(n: int) -> int {
+    if (n <= 1) {
+        return n;                    // Base cases: fib(0)=0, fib(1)=1
+    }
+    return fibonacci(n - 1) + fibonacci(n - 2);  // Recursive calls
+}
+
+"""
+    expected = "success"
+    assert Parser(source).parse() == expected
+def test_051():
+    """Test complex expression with pipeline operator"""
+    source = """func isEven(n: int) -> bool {
+    if (n == 0) {
+        return true;
+    }
+    return isOdd(n - 1);             // Calls isOdd
+}
+
+func isOdd(n: int) -> bool {
+    if (n == 0) {
+        return false;
+    }
+    return isEven(n - 1);            // Calls isEven
+}
+
+"""
+    expected = "success"
+    assert Parser(source).parse() == expected
+def test_052():
+    """Test complex expression with pipeline operator"""
+    source = """// String conversion examples:
+let age = 25;
+let ageStr = str(age);            // "25"
+
+let pi = 3.14159;
+let piStr = str(pi);              // "3.14159"
+
+let isValid = true;
+let validStr = str(isValid);      // "true"
+
+// Parsing examples:
+let numStr = "42";
+let num = int(numStr);            // 42
+
+let floatStr = "3.14";
+let floatNum = float(floatStr);   // 3.14
+
+// Error cases (runtime errors):
+// let invalid = int("not_a_number");  // Runtime error
+// let invalid2 = float("abc");        // Runtime error
+
+
+"""
+    expected = "success"
+    assert Parser(source).parse() == expected
+def test_053():
+    """Test complex expression with pipeline operator"""
+    source = """func factorial(n: int) -> int {
+    if (n <= 1) {
+        return 1;
+    }
+    return n * factorial(n - 1);
+}
+
+func main() -> void {
+    let num = 5;
+    let result = factorial(num);
+    print("Factorial of " + str(num) + " is " + str(result));
+}
+
+
+"""
+    expected = "success"
+    assert Parser(source).parse() == expected
+def test_054():
+    """Test complex expression with pipeline operator"""
+    source = """func sum_array(arr: [int; 5]) -> int {
+    let total = 0;
+    for (element in arr) {
+        total = total + element;
+    }
+    return total;
+}
+
+func main() -> void {
+    let numbers: [int; 5] = [1, 2, 3, 4, 5];
+    let sum = sum_array(numbers);
+    print("Sum of array: " + str(sum));
+}
+
+
+"""
+    expected = "success"
+    assert Parser(source).parse() == expected
+def test_055():
+    """Test complex expression with pipeline operator"""
+    source = """func add(a: float, b: float) -> float {
+    return a + b;
+}
+
+func multiply(a: float, b: float) -> float {
+    return a * b;
+}
+
+func main() -> void {
+    let x = 10.5;
+    let y = 3.2;
+    
+    print("Addition: " + str(add(x, y)));
+    print("Multiplication: " + str(multiply(x, y)));
+}
+
+
+
+"""
+    expected = "success"
+    assert Parser(source).parse() == expected

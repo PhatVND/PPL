@@ -62,6 +62,7 @@ IN: 'in';
 NEWLINE: '\r'? '\n' -> skip;
 
 // Arithmethic --------------------------------------------------------------------------
+INCREMENT: '++';
 ADD: '+';
 SUB: '-';
 MUL: '*';
@@ -94,6 +95,7 @@ RBRACE: '}';
 LBRACK: '[';
 RBRACK: ']';
 COMMA: ',';
+QUESTION: '?';
 SEMICOLON: ';';
 COLON: ':';
 
@@ -136,21 +138,20 @@ fragment ESC_ILLEGAL: [\r] | '\\' ~[ntr"\\];
 /* =========================================================================================== */
 ///////////////////////////////         N E W 		U P D A T E           ///////////////////////////////////////
 
-/* Thêm pipeline ở expression,
- sửa LET ở variables_declared,
- Hàm cho phép rỗng (nullable),
- chỉnhsửa ở list_statement_prime
- )?;
- Sửa function_declared
- để
- thê trường hợp <>
+/* 
  
- Cập nhật
- thêm
- function type
+ ADD INCREMENT_STATEMENT: ++
  
+ ADD
+ BLOCK_STATEMENT
  
- Add hàm không tên?
+ SỬA variables_declared, để cho có
+ trường hợp let ID : string;
+ 
+ Thêm trường hợp user.method();
+ Thêm dạng IF "?" a = b? "yes" "no"
+ Add gọi hàm, ví dụ str(123)
+ Add thêm builtin-function
  */
 /* =========================================================================================== */
 
@@ -218,6 +219,7 @@ list_expression_prime:
 expression:
 	expression PIPELINE expression1
 	| expression OR expression1
+	| expression1 QUESTION expression COLON expression
 	| expression1;
 expression1: expression1 AND expression2 | expression2;
 expression2:
@@ -237,20 +239,31 @@ expression4:
 	| expression4 DIV expression5
 	| expression4 MOD expression5
 	| expression5;
-expression5: NOT expression5 | SUB expression5 | expression6;
+expression5:
+	INCREMENT expression5
+	| NOT expression5
+	| SUB expression5
+	| expression6;
 expression6:
 	expression6 (
 		LBRACK expression RBRACK
 	) // 6.4 pdf --> Accessing array elements. VD:  a[2][3], b[4] ...
 	| function_call // Function call
+	| expression6 DOT ID
+	| expression6 DOT ID LPAREN list_expression RPAREN
+	| builtin_func LPAREN list_expression RPAREN
+	| ID LPAREN list_expression RPAREN
 	| ID
 	| primitive_type
 	| anonymous_function
 	| literal
 	| expression7;
 // HÀM KHÔNG TÊN
+
 anonymous_function:
 	FUNC parameter_list (ARROW mytype)? function_body_container;
+// builtin-function
+builtin_func: INT | FLOAT | 'STR' | BOOL | ID;
 expression7: LPAREN expression RPAREN;
 
 function_call:
@@ -274,8 +287,13 @@ statement:
 	| break_statement
 	| continue_statement
 	| call_statement
+	| increment_statement
+	| block_statement
 	| return_statement;
 
+// ADD INCREMENT_STATEMENT, BLOCK_STATEMENT
+increment_statement: INCREMENT ID SEMICOLON;
+block_statement: function_body_container;
 //TODO declared_statement --------------------------------------------------------------------------
 declared_statement:
 	variables_declared
@@ -289,10 +307,7 @@ while_statement:
 
 variables_declared:
 	LET ID (
-		// VAR changed to LET
-		COLON mytype ASSIGN expression
-		| (mytype ASSIGN expression)
-		| mytype
+		COLON mytype (ASSIGN expression)?
 		| ASSIGN expression
 	) SEMICOLON;
 variables_declared_without_semi_for_loop:
@@ -352,7 +367,7 @@ break_statement: BREAK SEMICOLON;
 continue_statement: CONTINUE SEMICOLON;
 
 // TODO call_statement: --------------------------------------------------------------------------
-call_statement: function_call SEMICOLON; // method_call removed
+call_statement: expression6 SEMICOLON; // ADD expression 6
 
 // TODO return_statement: ------------------------------------------------------------------------
 return_statement: RETURN expression? SEMICOLON;
