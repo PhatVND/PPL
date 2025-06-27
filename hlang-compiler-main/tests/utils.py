@@ -5,8 +5,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'bui
 from antlr4 import *
 from build.HLangLexer import HLangLexer
 from build.HLangParser import HLangParser
+from antlr4.error.ErrorListener import ErrorListener
 
 
+
+class ThrowingErrorListener(ErrorListener):
+    def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
+        raise Exception(f"line {line}:{column} {msg}")
 class Tokenizer:
     def __init__(self, input_string):
         self.input_stream = InputStream(input_string)
@@ -43,6 +48,9 @@ class Parser:
         self.lexer = HLangLexer(self.input_stream)
         self.token_stream = CommonTokenStream(self.lexer)
         self.parser = HLangParser(self.token_stream)
+
+        self.parser.removeErrorListeners()
+        self.parser.addErrorListener(ThrowingErrorListener())
 
     def parse(self):
         try:

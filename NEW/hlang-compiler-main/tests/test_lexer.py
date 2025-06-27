@@ -36,27 +36,16 @@ def test_005():
     source = "true false"
     expected = "true,false,EOF"
     assert Tokenizer(source).get_tokens_as_string() == expected
-
-
 def test_006():
-    """Test unclosed string literal error"""
+    """Test boolean literals"""
     source = '"Hello World'
     expected = "Unclosed String: Hello World"
-    # assert Tokenizer(source).get_tokens_as_string() == expected
-    with pytest.raises(UncloseString) as excinfo:
-        Tokenizer(source).get_tokens_as_string()
-    assert str(excinfo.value) == expected
-
-
+    assert Tokenizer(source).get_tokens_as_string() == expected
 def test_007():
-    """Test illegal escape sequence error"""
+    """Test boolean literals"""
     source = '"Hello \\x World"'
-    expected = "Illegal Escape In String: Hello \\x World"
-    # assert Tokenizer(source).get_tokens_as_string() == expected
-    with pytest.raises(IllegalEscape) as excinfo:
-        Tokenizer(source).get_tokens_as_string()
-    assert str(excinfo.value) == expected
-
+    expected = "Illegal Escape In String: Hello \\x"
+    assert Tokenizer(source).get_tokens_as_string() == expected
 
 def test_008():
     """Test error character (non-ASCII or invalid character)"""
