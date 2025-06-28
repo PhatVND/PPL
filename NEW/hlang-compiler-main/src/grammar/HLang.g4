@@ -197,9 +197,15 @@ array_dimention_element:
 	LBRACK INTEGER_LIT RBRACK; // ID removed, only INTEGER_LIT for size
 
 // array_lit_instance -> array_literal, add Dạng [1, 2, 3]
+// array_literal:
+// 	LBRACK (expression (COMMA expression)*)? RBRACK // Dạng [1,2,3]
+// 	| array_type LBRACE (expression (COMMA expression)*)? RBRACE;
+
+// array_literal: ebnf -> bnf
 array_literal:
-	LBRACK (expression (COMMA expression)*)? RBRACK // Dạng [1,2,3]
-	| array_type LBRACE (expression (COMMA expression)*)? RBRACE; // Dạng [3]int{1,2,3}
+	LBRACK list_expression RBRACK // Dạng [1,2,3]
+	| array_type LBRACE list_expression RBRACE; // Dạng [3]int{1,2,3}
+
 // Array_type + giá trị // Example:  [2][3]int {{1,2,3}, {4,5,6}
 list_array_value: (list_array_value_element) COMMA (
 		list_array_value
@@ -263,7 +269,8 @@ expression6:
 // HÀM KHÔNG TÊN
 
 anonymous_function:
-	FUNC parameter_list (ARROW mytype)? function_body_container;
+	FUNC parameter_list arrow_mytype_opt function_body_container;
+arrow_mytype_opt: ARROW mytype |;
 // builtin-function
 builtin_func: INT | FLOAT | 'STR' | BOOL | ID;
 expression7: LPAREN expression RPAREN;
@@ -307,25 +314,48 @@ declared_statement:
 while_statement:
 	WHILE LPAREN expression RPAREN function_body_container;
 
+// variables_declared:
+// 	LET ID (
+// 		COLON mytype (ASSIGN expression)? 
+// 		| ASSIGN expression
+// 	) SEMICOLON;
 variables_declared:
 	LET ID (
-		COLON mytype (ASSIGN expression)?
+		COLON mytype ASSIGN expression 
 		| ASSIGN expression
 	) SEMICOLON;
+// update variable in for loop
+// variables_declared_without_semi_for_loop:
+// 	LET ID mytype? ASSIGN expression; 
 variables_declared_without_semi_for_loop:
-	LET ID mytype? ASSIGN expression; // VAR changed to LET
+	ID ASSIGN expression; 
 
+//update constants_declared
+// constants_declared:
+// 	CONST ID (COLON mytype)? ASSIGN expression SEMICOLON?;
 constants_declared:
-	CONST ID (COLON mytype)? ASSIGN expression SEMICOLON?;
+	CONST ID const_type_opt ASSIGN expression SEMICOLON;
+const_type_opt: COLON mytype |; // Optional type for constants
+
+//update function_declared
+// function_declared:
+// 	FUNC ID generic_parameter_list? parameter_list (ARROW mytype)? function_body_container SEMICOLON?;
+// generic_parameter_list: LESS ID (COMMA ID)* GREATER;
+
 function_declared:
-	FUNC ID generic_parameter_list? parameter_list (ARROW mytype)? function_body_container SEMICOLON
-		?;
-generic_parameter_list: LESS ID (COMMA ID)* GREATER;
+	FUNC ID generic_parameter_opt parameter_list arrow_mytype_opt function_body_container SEMICOLON?;
+generic_parameter_opt: generic_parameter_list |; // Optional generic parameters
+generic_parameter_list: LESS ID generic_parameter_list_opt GREATER;
+generic_parameter_list_opt: COMMA ID generic_parameter_list_opt |; // Optional additional generic parameters
 
 function_body_container: LBRACE list_statement_prime RBRACE;
 
 // New parameter rule for functions
-parameter_list: LPAREN (parameter (COMMA parameter)*)? RPAREN;
+// update parameter_list
+// parameter_list: LPAREN (parameter (COMMA parameter)*)? RPAREN;
+parameter_list: LPAREN parameter_list_opt RPAREN;
+parameter_list_opt: parameter parameter_list_prime | ;
+parameter_list_prime: COMMA parameter parameter_list_prime | ;
 parameter: ID COLON mytype;
 
 //TODO assign_statement --------------------------------------------------------------------------
@@ -343,15 +373,27 @@ assignment_statement_without_semi_for_loop:
 	ID ASSIGN (expression); // Only ASSIGN allowed
 
 // TODO if_statement: --------------------------------------------------------------------------
+// update if_statement
+// if_statement:
+// 	IF (LPAREN expression RPAREN) (function_body_container) (
+// 		else_if_clause
+// 	)? (else_clause)?; // SEMICOLON removed
+// else_if_clause: (else_if_clause_content) else_if_clause
+// 	| (else_if_clause_content);
+// else_if_clause_content:
+// 	ELSE IF (LPAREN expression RPAREN) (function_body_container);
+
+// else_clause: ELSE function_body_container;
+
 if_statement:
-	IF (LPAREN expression RPAREN) (function_body_container) (
-		else_if_clause
-	)? (else_clause)?; // SEMICOLON removed
-else_if_clause: (else_if_clause_content) else_if_clause
+	IF (LPAREN expression RPAREN) (function_body_container) else_if_clause_opt else_clause_opt; // SEMICOLON removed
+else_if_clause_opt: else_if_clause_list |;
+else_if_clause_list: (else_if_clause_content) else_if_clause_list
 	| (else_if_clause_content);
 else_if_clause_content:
 	ELSE IF (LPAREN expression RPAREN) (function_body_container);
 
+else_clause_opt: else_clause |; // Optional else clause
 else_clause: ELSE function_body_container;
 
 // TODO for_statement: --------------------------------------------------------------------------
@@ -372,7 +414,10 @@ continue_statement: CONTINUE SEMICOLON;
 call_statement: expression6 SEMICOLON; // ADD expression 6
 
 // TODO return_statement: ------------------------------------------------------------------------
-return_statement: RETURN expression? SEMICOLON;
+// update return_statement
+// return_statement: RETURN expression? SEMICOLON;
+return_statement: RETURN return_statement_opt SEMICOLON;
+return_statement_opt: expression |; // Optional return expression
 
 /*----------------------------------        END PARSER         ------------------------------------ */
 /* ============================================================================================= */
