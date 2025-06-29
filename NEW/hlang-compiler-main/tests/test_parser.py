@@ -990,3 +990,9 @@ func main() -> void {
 """
     expected = "success"
     assert Parser(source).parse() == expected
+def test_056():
+    """Test complex expression with pipeline operator"""
+    source = """abc
+"""
+    expected = "success"
+    assert Parser(source).parse() == expected
