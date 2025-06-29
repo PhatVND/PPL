@@ -164,8 +164,8 @@ ILLEGAL_ESCAPE: '"' (~["\\\r\n] | ESCAPED_SEQ)* '\\' ~[ntr"\\];
 // Program definition --------------------------------------------------------------------------
 program: declared_statement_list EOF;
 
-declared_statement_list: (declared_statement | statement) declared_statement_list
-	| (declared_statement | statement);
+declared_statement_list: (declared_statement) declared_statement_list
+	| (declared_statement);
 //TODO Literal 6.6 pdf --------------------------------------------------------------------------
 literal: literal_primitive | array_literal;
 // struct_lit_instance removed as struct_declared is removed --- ADD NEW ARRAY_LITERAL
@@ -181,7 +181,7 @@ literal_primitive:
 // NEW UPDATE, FUNCTION_TYPE HERE
 mytype:
 	ID
-	| primitive_type
+	| primitive_type 	
 	| array_type
 	| LPAREN mytype RPAREN
 	| mytype ARROW mytype;
@@ -250,6 +250,7 @@ expression5:
 	INCREMENT expression5
 	| NOT expression5
 	| SUB expression5
+	| ADD expression5
 	| expression6;
 expression6:
 	expression6 (
@@ -281,13 +282,11 @@ function_call:
 
 //TODO Statement 5 and 4 pdf ----------------------------------------------------------------------
 list_statement: list_statement_prime |;
-list_statement_prime: (
-		statement list_statement_prime
-		| statement
-	)?;
+list_statement_prime: statement list_statement_prime | statement;
 
 statement:
 	declared_statement
+	| variables_declared
 	| assignment_statement
 	| if_statement
 	| for_statement
@@ -304,8 +303,7 @@ increment_statement: INCREMENT ID SEMICOLON;
 block_statement: function_body_container;
 //TODO declared_statement --------------------------------------------------------------------------
 declared_statement:
-	variables_declared
-	| constants_declared
+	constants_declared
 	| function_declared;
 // Removed method_declared, struct_declared, interface_declared (not in spec)
 
@@ -330,8 +328,7 @@ const_type_opt: COLON mytype |; // Optional type for constants
 // mytype)? function_body_container SEMICOLON?; generic_parameter_list: LESS ID (COMMA ID)* GREATER;
 
 function_declared:
-	FUNC ID generic_parameter_opt parameter_list arrow_mytype_opt function_body_container SEMICOLON?
-		;
+	FUNC ID generic_parameter_opt parameter_list arrow_mytype_opt function_body_container SEMICOLON?;
 generic_parameter_opt:
 	generic_parameter_list
 	|; // Optional generic parameters
@@ -341,7 +338,7 @@ generic_parameter_list_opt:
 	COMMA ID generic_parameter_list_opt
 	|; // Optional additional generic parameters
 
-function_body_container: LBRACE list_statement_prime RBRACE;
+function_body_container: LBRACE list_statement RBRACE;
 
 // New parameter rule for functions update parameter_list parameter_list: LPAREN (parameter (COMMA
 // parameter)*)? RPAREN;
