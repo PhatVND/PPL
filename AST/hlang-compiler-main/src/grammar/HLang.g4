@@ -20,7 +20,11 @@ def emit(self):
             raise UncloseString(result.text[1:])
     elif tk == self.ILLEGAL_ESCAPE:
         result = super().emit()
-        raise IllegalEscape(result.text[1:])
+        raw = result.text[1:] 
+        idx = raw.find('\\')
+        if idx != -1 and idx + 1 < len(raw):
+            raise IllegalEscape(raw[:idx + 2])
+        raise IllegalEscape(raw)
     elif tk == self.ERROR_CHAR:
         result = super().emit()
         raise ErrorToken(result.text)
@@ -128,9 +132,7 @@ ERROR_CHAR: . {raise ErrorToken(self.text)};
 
 UNCLOSE_STRING: '"' CHARACTER* ('\r\n' | '\n' | EOF);
 
-ILLEGAL_ESCAPE:
-	'"' (~["\\\r\n] | ESCAPED_SEQ)* ESC_ILLEGAL (~["\r\n])*;
-fragment ESC_ILLEGAL: [\r] | '\\' ~[ntr"\\];
+ILLEGAL_ESCAPE: '"' (~["\\\r\n] | ESCAPED_SEQ)* '\\' ~[ntr"\\];
 
 /*----------------------------------        END LEXER         ------------------------------------ */
 /* =========================================================================================== */
@@ -162,8 +164,8 @@ fragment ESC_ILLEGAL: [\r] | '\\' ~[ntr"\\];
 // Program definition --------------------------------------------------------------------------
 program: declared_statement_list EOF;
 
-declared_statement_list: (declared_statement | statement) declared_statement_list
-	| (declared_statement | statement);
+declared_statement_list: (declared_statement) declared_statement_list
+	| (declared_statement);
 //TODO Literal 6.6 pdf --------------------------------------------------------------------------
 literal: literal_primitive | array_literal;
 // struct_lit_instance removed as struct_declared is removed --- ADD NEW ARRAY_LITERAL
@@ -194,10 +196,15 @@ array_dimention: (array_dimention_element) (array_dimention)
 array_dimention_element:
 	LBRACK INTEGER_LIT RBRACK; // ID removed, only INTEGER_LIT for size
 
-// array_lit_instance -> array_literal, add Dạng [1, 2, 3]
+// array_lit_instance -> array_literal, add Dạng [1, 2, 3] array_literal: LBRACK (expression (COMMA
+// expression)*)? RBRACK // Dạng [1,2,3] | array_type LBRACE (expression (COMMA expression)*)?
+// RBRACE;
+
+// array_literal: ebnf -> bnf
 array_literal:
-	LBRACK (expression (COMMA expression)*)? RBRACK // Dạng [1,2,3]
-	| array_type LBRACE (expression (COMMA expression)*)? RBRACE; // Dạng [3]int{1,2,3}
+	LBRACK list_expression RBRACK // Dạng [1,2,3]
+	| array_type LBRACE list_expression RBRACE; // Dạng [3]int{1,2,3}
+
 // Array_type + giá trị // Example:  [2][3]int {{1,2,3}, {4,5,6}
 list_array_value: (list_array_value_element) COMMA (
 		list_array_value
@@ -243,6 +250,7 @@ expression5:
 	INCREMENT expression5
 	| NOT expression5
 	| SUB expression5
+	| ADD expression5
 	| expression6;
 expression6:
 	expression6 (
@@ -253,15 +261,16 @@ expression6:
 	| expression6 DOT ID LPAREN list_expression RPAREN
 	| builtin_func LPAREN list_expression RPAREN
 	| ID LPAREN list_expression RPAREN
-	| ID
 	| primitive_type
+	| ID
 	| anonymous_function
 	| literal
 	| expression7;
 // HÀM KHÔNG TÊN
 
 anonymous_function:
-	FUNC parameter_list (ARROW mytype)? function_body_container;
+	FUNC parameter_list arrow_mytype_opt function_body_container;
+arrow_mytype_opt: ARROW mytype |;
 // builtin-function
 builtin_func: INT | FLOAT | 'STR' | BOOL | ID;
 expression7: LPAREN expression RPAREN;
@@ -273,13 +282,13 @@ function_call:
 
 //TODO Statement 5 and 4 pdf ----------------------------------------------------------------------
 list_statement: list_statement_prime |;
-list_statement_prime: (
-		statement list_statement_prime
-		| statement
-	)?;
+list_statement_prime:
+	statement list_statement_prime
+	| statement;
 
 statement:
 	declared_statement
+	| variables_declared
 	| assignment_statement
 	| if_statement
 	| for_statement
@@ -295,35 +304,48 @@ statement:
 increment_statement: INCREMENT ID SEMICOLON;
 block_statement: function_body_container;
 //TODO declared_statement --------------------------------------------------------------------------
-declared_statement:
-	variables_declared
-	| constants_declared
-	| function_declared;
+declared_statement: constants_declared | function_declared;
 // Removed method_declared, struct_declared, interface_declared (not in spec)
 
 // Add while statement
 while_statement:
 	WHILE LPAREN expression RPAREN function_body_container;
 
+// variables_declared: LET ID ( COLON mytype (ASSIGN expression)? | ASSIGN expression ) SEMICOLON;
 variables_declared:
-	LET ID (
-		COLON mytype (ASSIGN expression)?
-		| ASSIGN expression
-	) SEMICOLON;
-variables_declared_without_semi_for_loop:
-	LET ID mytype? ASSIGN expression; // VAR changed to LET
+	LET ID COLON mytype ASSIGN expression SEMICOLON
+	| LET ID ASSIGN expression SEMICOLON
+	| LET ID COLON mytype SEMICOLON;
+variables_declared_without_semi_for_loop: ID ASSIGN expression;
 
+//update constants_declared constants_declared: CONST ID (COLON mytype)? ASSIGN expression
+// SEMICOLON?;
 constants_declared:
-	CONST ID (COLON mytype)? ASSIGN expression SEMICOLON?;
+	CONST ID const_type_opt ASSIGN expression SEMICOLON;
+const_type_opt: COLON mytype |; // Optional type for constants
+
+//update function_declared function_declared: FUNC ID generic_parameter_list? parameter_list (ARROW
+// mytype)? function_body_container SEMICOLON?; generic_parameter_list: LESS ID (COMMA ID)* GREATER;
+
 function_declared:
-	FUNC ID generic_parameter_list? parameter_list (ARROW mytype)? function_body_container SEMICOLON
-		?;
-generic_parameter_list: LESS ID (COMMA ID)* GREATER;
+	FUNC ID generic_parameter_opt parameter_list arrow_mytype_opt function_body_container SEMICOLON?
+		;
+generic_parameter_opt:
+	generic_parameter_list
+	|; // Optional generic parameters
+generic_parameter_list:
+	LESS ID generic_parameter_list_opt GREATER;
+generic_parameter_list_opt:
+	COMMA ID generic_parameter_list_opt
+	|; // Optional additional generic parameters
 
-function_body_container: LBRACE list_statement_prime RBRACE;
+function_body_container: LBRACE list_statement RBRACE;
 
-// New parameter rule for functions
-parameter_list: LPAREN (parameter (COMMA parameter)*)? RPAREN;
+// New parameter rule for functions update parameter_list parameter_list: LPAREN (parameter (COMMA
+// parameter)*)? RPAREN;
+parameter_list: LPAREN parameter_list_opt RPAREN;
+parameter_list_opt: parameter parameter_list_prime |;
+parameter_list_prime: COMMA parameter parameter_list_prime |;
 parameter: ID COLON mytype;
 
 //TODO assign_statement --------------------------------------------------------------------------
@@ -341,15 +363,23 @@ assignment_statement_without_semi_for_loop:
 	ID ASSIGN (expression); // Only ASSIGN allowed
 
 // TODO if_statement: --------------------------------------------------------------------------
+// update if_statement if_statement: IF (LPAREN expression RPAREN) (function_body_container) (
+// else_if_clause )? (else_clause)?; // SEMICOLON removed else_if_clause: (else_if_clause_content)
+// else_if_clause | (else_if_clause_content); else_if_clause_content: ELSE IF (LPAREN expression
+// RPAREN) (function_body_container);
+
+// else_clause: ELSE function_body_container;
+
 if_statement:
-	IF (LPAREN expression RPAREN) (function_body_container) (
-		else_if_clause
-	)? (else_clause)?; // SEMICOLON removed
-else_if_clause: (else_if_clause_content) else_if_clause
+	IF (LPAREN expression RPAREN) (function_body_container) else_if_clause_opt else_clause_opt;
+// SEMICOLON removed
+else_if_clause_opt: else_if_clause_list |;
+else_if_clause_list: (else_if_clause_content) else_if_clause_list
 	| (else_if_clause_content);
 else_if_clause_content:
 	ELSE IF (LPAREN expression RPAREN) (function_body_container);
 
+else_clause_opt: else_clause |; // Optional else clause
 else_clause: ELSE function_body_container;
 
 // TODO for_statement: --------------------------------------------------------------------------
@@ -367,10 +397,16 @@ break_statement: BREAK SEMICOLON;
 continue_statement: CONTINUE SEMICOLON;
 
 // TODO call_statement: --------------------------------------------------------------------------
-call_statement: expression6 SEMICOLON; // ADD expression 6
+call_statement:
+	function_call SEMICOLON
+	| builtin_func LPAREN list_expression RPAREN SEMICOLON
+	| method_call SEMICOLON;
 
+method_call: ID DOT ID LPAREN list_expression RPAREN;
 // TODO return_statement: ------------------------------------------------------------------------
-return_statement: RETURN expression? SEMICOLON;
+// update return_statement return_statement: RETURN expression? SEMICOLON;
+return_statement: RETURN return_statement_opt SEMICOLON;
+return_statement_opt: expression |; // Optional return expression
 
 /*----------------------------------        END PARSER         ------------------------------------ */
 /* ============================================================================================= */

@@ -1,4 +1,4 @@
-# Generated from d:/StudyingStuffs/ThirdYear/PPL/Assignment/hlang-compiler-main/src/grammar/HLang.g4 by ANTLR 4.13.1
+# Generated from d:/StudyingStuffs/ThirdYear/PPL/PPL/NEW/hlang-compiler-main/src/grammar/HLang.g4 by ANTLR 4.13.1
 from antlr4 import *
 if "." in __name__:
     from .HLangParser import HLangParser
@@ -206,6 +206,15 @@ class HLangListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by HLangParser#arrow_mytype_opt.
+    def enterArrow_mytype_opt(self, ctx:HLangParser.Arrow_mytype_optContext):
+        pass
+
+    # Exit a parse tree produced by HLangParser#arrow_mytype_opt.
+    def exitArrow_mytype_opt(self, ctx:HLangParser.Arrow_mytype_optContext):
+        pass
+
+
     # Enter a parse tree produced by HLangParser#builtin_func.
     def enterBuiltin_func(self, ctx:HLangParser.Builtin_funcContext):
         pass
@@ -323,6 +332,15 @@ class HLangListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by HLangParser#const_type_opt.
+    def enterConst_type_opt(self, ctx:HLangParser.Const_type_optContext):
+        pass
+
+    # Exit a parse tree produced by HLangParser#const_type_opt.
+    def exitConst_type_opt(self, ctx:HLangParser.Const_type_optContext):
+        pass
+
+
     # Enter a parse tree produced by HLangParser#function_declared.
     def enterFunction_declared(self, ctx:HLangParser.Function_declaredContext):
         pass
@@ -332,12 +350,30 @@ class HLangListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by HLangParser#generic_parameter_opt.
+    def enterGeneric_parameter_opt(self, ctx:HLangParser.Generic_parameter_optContext):
+        pass
+
+    # Exit a parse tree produced by HLangParser#generic_parameter_opt.
+    def exitGeneric_parameter_opt(self, ctx:HLangParser.Generic_parameter_optContext):
+        pass
+
+
     # Enter a parse tree produced by HLangParser#generic_parameter_list.
     def enterGeneric_parameter_list(self, ctx:HLangParser.Generic_parameter_listContext):
         pass
 
     # Exit a parse tree produced by HLangParser#generic_parameter_list.
     def exitGeneric_parameter_list(self, ctx:HLangParser.Generic_parameter_listContext):
+        pass
+
+
+    # Enter a parse tree produced by HLangParser#generic_parameter_list_opt.
+    def enterGeneric_parameter_list_opt(self, ctx:HLangParser.Generic_parameter_list_optContext):
+        pass
+
+    # Exit a parse tree produced by HLangParser#generic_parameter_list_opt.
+    def exitGeneric_parameter_list_opt(self, ctx:HLangParser.Generic_parameter_list_optContext):
         pass
 
 
@@ -356,6 +392,24 @@ class HLangListener(ParseTreeListener):
 
     # Exit a parse tree produced by HLangParser#parameter_list.
     def exitParameter_list(self, ctx:HLangParser.Parameter_listContext):
+        pass
+
+
+    # Enter a parse tree produced by HLangParser#parameter_list_opt.
+    def enterParameter_list_opt(self, ctx:HLangParser.Parameter_list_optContext):
+        pass
+
+    # Exit a parse tree produced by HLangParser#parameter_list_opt.
+    def exitParameter_list_opt(self, ctx:HLangParser.Parameter_list_optContext):
+        pass
+
+
+    # Enter a parse tree produced by HLangParser#parameter_list_prime.
+    def enterParameter_list_prime(self, ctx:HLangParser.Parameter_list_primeContext):
+        pass
+
+    # Exit a parse tree produced by HLangParser#parameter_list_prime.
+    def exitParameter_list_prime(self, ctx:HLangParser.Parameter_list_primeContext):
         pass
 
 
@@ -404,12 +458,21 @@ class HLangListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by HLangParser#else_if_clause.
-    def enterElse_if_clause(self, ctx:HLangParser.Else_if_clauseContext):
+    # Enter a parse tree produced by HLangParser#else_if_clause_opt.
+    def enterElse_if_clause_opt(self, ctx:HLangParser.Else_if_clause_optContext):
         pass
 
-    # Exit a parse tree produced by HLangParser#else_if_clause.
-    def exitElse_if_clause(self, ctx:HLangParser.Else_if_clauseContext):
+    # Exit a parse tree produced by HLangParser#else_if_clause_opt.
+    def exitElse_if_clause_opt(self, ctx:HLangParser.Else_if_clause_optContext):
+        pass
+
+
+    # Enter a parse tree produced by HLangParser#else_if_clause_list.
+    def enterElse_if_clause_list(self, ctx:HLangParser.Else_if_clause_listContext):
+        pass
+
+    # Exit a parse tree produced by HLangParser#else_if_clause_list.
+    def exitElse_if_clause_list(self, ctx:HLangParser.Else_if_clause_listContext):
         pass
 
 
@@ -419,6 +482,15 @@ class HLangListener(ParseTreeListener):
 
     # Exit a parse tree produced by HLangParser#else_if_clause_content.
     def exitElse_if_clause_content(self, ctx:HLangParser.Else_if_clause_contentContext):
+        pass
+
+
+    # Enter a parse tree produced by HLangParser#else_clause_opt.
+    def enterElse_clause_opt(self, ctx:HLangParser.Else_clause_optContext):
+        pass
+
+    # Exit a parse tree produced by HLangParser#else_clause_opt.
+    def exitElse_clause_opt(self, ctx:HLangParser.Else_clause_optContext):
         pass
 
 
@@ -476,12 +548,30 @@ class HLangListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by HLangParser#method_call.
+    def enterMethod_call(self, ctx:HLangParser.Method_callContext):
+        pass
+
+    # Exit a parse tree produced by HLangParser#method_call.
+    def exitMethod_call(self, ctx:HLangParser.Method_callContext):
+        pass
+
+
     # Enter a parse tree produced by HLangParser#return_statement.
     def enterReturn_statement(self, ctx:HLangParser.Return_statementContext):
         pass
 
     # Exit a parse tree produced by HLangParser#return_statement.
     def exitReturn_statement(self, ctx:HLangParser.Return_statementContext):
+        pass
+
+
+    # Enter a parse tree produced by HLangParser#return_statement_opt.
+    def enterReturn_statement_opt(self, ctx:HLangParser.Return_statement_optContext):
+        pass
+
+    # Exit a parse tree produced by HLangParser#return_statement_opt.
+    def exitReturn_statement_opt(self, ctx:HLangParser.Return_statement_optContext):
         pass
 
 

@@ -1,4 +1,4 @@
-# Generated from d:/StudyingStuffs/ThirdYear/PPL/PPL/hlang-compiler-main/src/grammar/HLang.g4 by ANTLR 4.13.1
+# Generated from d:/StudyingStuffs/ThirdYear/PPL/PPL/NEW/hlang-compiler-main/src/grammar/HLang.g4 by ANTLR 4.13.1
 from antlr4 import *
 if "." in __name__:
     from .HLangParser import HLangParser
@@ -89,12 +89,12 @@ class HLangListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by HLangParser#array_lit_instance.
-    def enterArray_lit_instance(self, ctx:HLangParser.Array_lit_instanceContext):
+    # Enter a parse tree produced by HLangParser#array_literal.
+    def enterArray_literal(self, ctx:HLangParser.Array_literalContext):
         pass
 
-    # Exit a parse tree produced by HLangParser#array_lit_instance.
-    def exitArray_lit_instance(self, ctx:HLangParser.Array_lit_instanceContext):
+    # Exit a parse tree produced by HLangParser#array_literal.
+    def exitArray_literal(self, ctx:HLangParser.Array_literalContext):
         pass
 
 
@@ -113,42 +113,6 @@ class HLangListener(ParseTreeListener):
 
     # Exit a parse tree produced by HLangParser#list_array_value_element.
     def exitList_array_value_element(self, ctx:HLangParser.List_array_value_elementContext):
-        pass
-
-
-    # Enter a parse tree produced by HLangParser#struct_lit_instance.
-    def enterStruct_lit_instance(self, ctx:HLangParser.Struct_lit_instanceContext):
-        pass
-
-    # Exit a parse tree produced by HLangParser#struct_lit_instance.
-    def exitStruct_lit_instance(self, ctx:HLangParser.Struct_lit_instanceContext):
-        pass
-
-
-    # Enter a parse tree produced by HLangParser#struct_lit_instance_body.
-    def enterStruct_lit_instance_body(self, ctx:HLangParser.Struct_lit_instance_bodyContext):
-        pass
-
-    # Exit a parse tree produced by HLangParser#struct_lit_instance_body.
-    def exitStruct_lit_instance_body(self, ctx:HLangParser.Struct_lit_instance_bodyContext):
-        pass
-
-
-    # Enter a parse tree produced by HLangParser#struct_lit_instance_body_prime.
-    def enterStruct_lit_instance_body_prime(self, ctx:HLangParser.Struct_lit_instance_body_primeContext):
-        pass
-
-    # Exit a parse tree produced by HLangParser#struct_lit_instance_body_prime.
-    def exitStruct_lit_instance_body_prime(self, ctx:HLangParser.Struct_lit_instance_body_primeContext):
-        pass
-
-
-    # Enter a parse tree produced by HLangParser#struct_lit_instance_body_element.
-    def enterStruct_lit_instance_body_element(self, ctx:HLangParser.Struct_lit_instance_body_elementContext):
-        pass
-
-    # Exit a parse tree produced by HLangParser#struct_lit_instance_body_element.
-    def exitStruct_lit_instance_body_element(self, ctx:HLangParser.Struct_lit_instance_body_elementContext):
         pass
 
 
@@ -233,6 +197,33 @@ class HLangListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by HLangParser#anonymous_function.
+    def enterAnonymous_function(self, ctx:HLangParser.Anonymous_functionContext):
+        pass
+
+    # Exit a parse tree produced by HLangParser#anonymous_function.
+    def exitAnonymous_function(self, ctx:HLangParser.Anonymous_functionContext):
+        pass
+
+
+    # Enter a parse tree produced by HLangParser#arrow_mytype_opt.
+    def enterArrow_mytype_opt(self, ctx:HLangParser.Arrow_mytype_optContext):
+        pass
+
+    # Exit a parse tree produced by HLangParser#arrow_mytype_opt.
+    def exitArrow_mytype_opt(self, ctx:HLangParser.Arrow_mytype_optContext):
+        pass
+
+
+    # Enter a parse tree produced by HLangParser#builtin_func.
+    def enterBuiltin_func(self, ctx:HLangParser.Builtin_funcContext):
+        pass
+
+    # Exit a parse tree produced by HLangParser#builtin_func.
+    def exitBuiltin_func(self, ctx:HLangParser.Builtin_funcContext):
+        pass
+
+
     # Enter a parse tree produced by HLangParser#expression7.
     def enterExpression7(self, ctx:HLangParser.Expression7Context):
         pass
@@ -248,24 +239,6 @@ class HLangListener(ParseTreeListener):
 
     # Exit a parse tree produced by HLangParser#function_call.
     def exitFunction_call(self, ctx:HLangParser.Function_callContext):
-        pass
-
-
-    # Enter a parse tree produced by HLangParser#method_call.
-    def enterMethod_call(self, ctx:HLangParser.Method_callContext):
-        pass
-
-    # Exit a parse tree produced by HLangParser#method_call.
-    def exitMethod_call(self, ctx:HLangParser.Method_callContext):
-        pass
-
-
-    # Enter a parse tree produced by HLangParser#temp_expression6.
-    def enterTemp_expression6(self, ctx:HLangParser.Temp_expression6Context):
-        pass
-
-    # Exit a parse tree produced by HLangParser#temp_expression6.
-    def exitTemp_expression6(self, ctx:HLangParser.Temp_expression6Context):
         pass
 
 
@@ -296,12 +269,39 @@ class HLangListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by HLangParser#increment_statement.
+    def enterIncrement_statement(self, ctx:HLangParser.Increment_statementContext):
+        pass
+
+    # Exit a parse tree produced by HLangParser#increment_statement.
+    def exitIncrement_statement(self, ctx:HLangParser.Increment_statementContext):
+        pass
+
+
+    # Enter a parse tree produced by HLangParser#block_statement.
+    def enterBlock_statement(self, ctx:HLangParser.Block_statementContext):
+        pass
+
+    # Exit a parse tree produced by HLangParser#block_statement.
+    def exitBlock_statement(self, ctx:HLangParser.Block_statementContext):
+        pass
+
+
     # Enter a parse tree produced by HLangParser#declared_statement.
     def enterDeclared_statement(self, ctx:HLangParser.Declared_statementContext):
         pass
 
     # Exit a parse tree produced by HLangParser#declared_statement.
     def exitDeclared_statement(self, ctx:HLangParser.Declared_statementContext):
+        pass
+
+
+    # Enter a parse tree produced by HLangParser#while_statement.
+    def enterWhile_statement(self, ctx:HLangParser.While_statementContext):
+        pass
+
+    # Exit a parse tree produced by HLangParser#while_statement.
+    def exitWhile_statement(self, ctx:HLangParser.While_statementContext):
         pass
 
 
@@ -332,12 +332,48 @@ class HLangListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by HLangParser#const_type_opt.
+    def enterConst_type_opt(self, ctx:HLangParser.Const_type_optContext):
+        pass
+
+    # Exit a parse tree produced by HLangParser#const_type_opt.
+    def exitConst_type_opt(self, ctx:HLangParser.Const_type_optContext):
+        pass
+
+
     # Enter a parse tree produced by HLangParser#function_declared.
     def enterFunction_declared(self, ctx:HLangParser.Function_declaredContext):
         pass
 
     # Exit a parse tree produced by HLangParser#function_declared.
     def exitFunction_declared(self, ctx:HLangParser.Function_declaredContext):
+        pass
+
+
+    # Enter a parse tree produced by HLangParser#generic_parameter_opt.
+    def enterGeneric_parameter_opt(self, ctx:HLangParser.Generic_parameter_optContext):
+        pass
+
+    # Exit a parse tree produced by HLangParser#generic_parameter_opt.
+    def exitGeneric_parameter_opt(self, ctx:HLangParser.Generic_parameter_optContext):
+        pass
+
+
+    # Enter a parse tree produced by HLangParser#generic_parameter_list.
+    def enterGeneric_parameter_list(self, ctx:HLangParser.Generic_parameter_listContext):
+        pass
+
+    # Exit a parse tree produced by HLangParser#generic_parameter_list.
+    def exitGeneric_parameter_list(self, ctx:HLangParser.Generic_parameter_listContext):
+        pass
+
+
+    # Enter a parse tree produced by HLangParser#generic_parameter_list_opt.
+    def enterGeneric_parameter_list_opt(self, ctx:HLangParser.Generic_parameter_list_optContext):
+        pass
+
+    # Exit a parse tree produced by HLangParser#generic_parameter_list_opt.
+    def exitGeneric_parameter_list_opt(self, ctx:HLangParser.Generic_parameter_list_optContext):
         pass
 
 
@@ -350,111 +386,39 @@ class HLangListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by HLangParser#method_declared.
-    def enterMethod_declared(self, ctx:HLangParser.Method_declaredContext):
+    # Enter a parse tree produced by HLangParser#parameter_list.
+    def enterParameter_list(self, ctx:HLangParser.Parameter_listContext):
         pass
 
-    # Exit a parse tree produced by HLangParser#method_declared.
-    def exitMethod_declared(self, ctx:HLangParser.Method_declaredContext):
-        pass
-
-
-    # Enter a parse tree produced by HLangParser#receiver_container.
-    def enterReceiver_container(self, ctx:HLangParser.Receiver_containerContext):
-        pass
-
-    # Exit a parse tree produced by HLangParser#receiver_container.
-    def exitReceiver_container(self, ctx:HLangParser.Receiver_containerContext):
+    # Exit a parse tree produced by HLangParser#parameter_list.
+    def exitParameter_list(self, ctx:HLangParser.Parameter_listContext):
         pass
 
 
-    # Enter a parse tree produced by HLangParser#struct_declared.
-    def enterStruct_declared(self, ctx:HLangParser.Struct_declaredContext):
+    # Enter a parse tree produced by HLangParser#parameter_list_opt.
+    def enterParameter_list_opt(self, ctx:HLangParser.Parameter_list_optContext):
         pass
 
-    # Exit a parse tree produced by HLangParser#struct_declared.
-    def exitStruct_declared(self, ctx:HLangParser.Struct_declaredContext):
-        pass
-
-
-    # Enter a parse tree produced by HLangParser#struct_declared_body.
-    def enterStruct_declared_body(self, ctx:HLangParser.Struct_declared_bodyContext):
-        pass
-
-    # Exit a parse tree produced by HLangParser#struct_declared_body.
-    def exitStruct_declared_body(self, ctx:HLangParser.Struct_declared_bodyContext):
+    # Exit a parse tree produced by HLangParser#parameter_list_opt.
+    def exitParameter_list_opt(self, ctx:HLangParser.Parameter_list_optContext):
         pass
 
 
-    # Enter a parse tree produced by HLangParser#struct_declared_body_element.
-    def enterStruct_declared_body_element(self, ctx:HLangParser.Struct_declared_body_elementContext):
+    # Enter a parse tree produced by HLangParser#parameter_list_prime.
+    def enterParameter_list_prime(self, ctx:HLangParser.Parameter_list_primeContext):
         pass
 
-    # Exit a parse tree produced by HLangParser#struct_declared_body_element.
-    def exitStruct_declared_body_element(self, ctx:HLangParser.Struct_declared_body_elementContext):
-        pass
-
-
-    # Enter a parse tree produced by HLangParser#interface_declared.
-    def enterInterface_declared(self, ctx:HLangParser.Interface_declaredContext):
-        pass
-
-    # Exit a parse tree produced by HLangParser#interface_declared.
-    def exitInterface_declared(self, ctx:HLangParser.Interface_declaredContext):
+    # Exit a parse tree produced by HLangParser#parameter_list_prime.
+    def exitParameter_list_prime(self, ctx:HLangParser.Parameter_list_primeContext):
         pass
 
 
-    # Enter a parse tree produced by HLangParser#interface_declared_body.
-    def enterInterface_declared_body(self, ctx:HLangParser.Interface_declared_bodyContext):
+    # Enter a parse tree produced by HLangParser#parameter.
+    def enterParameter(self, ctx:HLangParser.ParameterContext):
         pass
 
-    # Exit a parse tree produced by HLangParser#interface_declared_body.
-    def exitInterface_declared_body(self, ctx:HLangParser.Interface_declared_bodyContext):
-        pass
-
-
-    # Enter a parse tree produced by HLangParser#interface_declared_element.
-    def enterInterface_declared_element(self, ctx:HLangParser.Interface_declared_elementContext):
-        pass
-
-    # Exit a parse tree produced by HLangParser#interface_declared_element.
-    def exitInterface_declared_element(self, ctx:HLangParser.Interface_declared_elementContext):
-        pass
-
-
-    # Enter a parse tree produced by HLangParser#interface_parameter_container.
-    def enterInterface_parameter_container(self, ctx:HLangParser.Interface_parameter_containerContext):
-        pass
-
-    # Exit a parse tree produced by HLangParser#interface_parameter_container.
-    def exitInterface_parameter_container(self, ctx:HLangParser.Interface_parameter_containerContext):
-        pass
-
-
-    # Enter a parse tree produced by HLangParser#list_interface_parameter.
-    def enterList_interface_parameter(self, ctx:HLangParser.List_interface_parameterContext):
-        pass
-
-    # Exit a parse tree produced by HLangParser#list_interface_parameter.
-    def exitList_interface_parameter(self, ctx:HLangParser.List_interface_parameterContext):
-        pass
-
-
-    # Enter a parse tree produced by HLangParser#list_interface_parameter_prime.
-    def enterList_interface_parameter_prime(self, ctx:HLangParser.List_interface_parameter_primeContext):
-        pass
-
-    # Exit a parse tree produced by HLangParser#list_interface_parameter_prime.
-    def exitList_interface_parameter_prime(self, ctx:HLangParser.List_interface_parameter_primeContext):
-        pass
-
-
-    # Enter a parse tree produced by HLangParser#list_interface_parameter_element.
-    def enterList_interface_parameter_element(self, ctx:HLangParser.List_interface_parameter_elementContext):
-        pass
-
-    # Exit a parse tree produced by HLangParser#list_interface_parameter_element.
-    def exitList_interface_parameter_element(self, ctx:HLangParser.List_interface_parameter_elementContext):
+    # Exit a parse tree produced by HLangParser#parameter.
+    def exitParameter(self, ctx:HLangParser.ParameterContext):
         pass
 
 
@@ -464,15 +428,6 @@ class HLangListener(ParseTreeListener):
 
     # Exit a parse tree produced by HLangParser#assignment_statement.
     def exitAssignment_statement(self, ctx:HLangParser.Assignment_statementContext):
-        pass
-
-
-    # Enter a parse tree produced by HLangParser#assignment_operator.
-    def enterAssignment_operator(self, ctx:HLangParser.Assignment_operatorContext):
-        pass
-
-    # Exit a parse tree produced by HLangParser#assignment_operator.
-    def exitAssignment_operator(self, ctx:HLangParser.Assignment_operatorContext):
         pass
 
 
@@ -503,12 +458,21 @@ class HLangListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by HLangParser#else_if_clause.
-    def enterElse_if_clause(self, ctx:HLangParser.Else_if_clauseContext):
+    # Enter a parse tree produced by HLangParser#else_if_clause_opt.
+    def enterElse_if_clause_opt(self, ctx:HLangParser.Else_if_clause_optContext):
         pass
 
-    # Exit a parse tree produced by HLangParser#else_if_clause.
-    def exitElse_if_clause(self, ctx:HLangParser.Else_if_clauseContext):
+    # Exit a parse tree produced by HLangParser#else_if_clause_opt.
+    def exitElse_if_clause_opt(self, ctx:HLangParser.Else_if_clause_optContext):
+        pass
+
+
+    # Enter a parse tree produced by HLangParser#else_if_clause_list.
+    def enterElse_if_clause_list(self, ctx:HLangParser.Else_if_clause_listContext):
+        pass
+
+    # Exit a parse tree produced by HLangParser#else_if_clause_list.
+    def exitElse_if_clause_list(self, ctx:HLangParser.Else_if_clause_listContext):
         pass
 
 
@@ -518,6 +482,15 @@ class HLangListener(ParseTreeListener):
 
     # Exit a parse tree produced by HLangParser#else_if_clause_content.
     def exitElse_if_clause_content(self, ctx:HLangParser.Else_if_clause_contentContext):
+        pass
+
+
+    # Enter a parse tree produced by HLangParser#else_clause_opt.
+    def enterElse_clause_opt(self, ctx:HLangParser.Else_clause_optContext):
+        pass
+
+    # Exit a parse tree produced by HLangParser#else_clause_opt.
+    def exitElse_clause_opt(self, ctx:HLangParser.Else_clause_optContext):
         pass
 
 
@@ -539,30 +512,12 @@ class HLangListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by HLangParser#basic_for_loop.
-    def enterBasic_for_loop(self, ctx:HLangParser.Basic_for_loopContext):
+    # Enter a parse tree produced by HLangParser#for_in_loop.
+    def enterFor_in_loop(self, ctx:HLangParser.For_in_loopContext):
         pass
 
-    # Exit a parse tree produced by HLangParser#basic_for_loop.
-    def exitBasic_for_loop(self, ctx:HLangParser.Basic_for_loopContext):
-        pass
-
-
-    # Enter a parse tree produced by HLangParser#initialization_for_loop.
-    def enterInitialization_for_loop(self, ctx:HLangParser.Initialization_for_loopContext):
-        pass
-
-    # Exit a parse tree produced by HLangParser#initialization_for_loop.
-    def exitInitialization_for_loop(self, ctx:HLangParser.Initialization_for_loopContext):
-        pass
-
-
-    # Enter a parse tree produced by HLangParser#array_for_loop.
-    def enterArray_for_loop(self, ctx:HLangParser.Array_for_loopContext):
-        pass
-
-    # Exit a parse tree produced by HLangParser#array_for_loop.
-    def exitArray_for_loop(self, ctx:HLangParser.Array_for_loopContext):
+    # Exit a parse tree produced by HLangParser#for_in_loop.
+    def exitFor_in_loop(self, ctx:HLangParser.For_in_loopContext):
         pass
 
 
@@ -593,12 +548,30 @@ class HLangListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by HLangParser#method_call.
+    def enterMethod_call(self, ctx:HLangParser.Method_callContext):
+        pass
+
+    # Exit a parse tree produced by HLangParser#method_call.
+    def exitMethod_call(self, ctx:HLangParser.Method_callContext):
+        pass
+
+
     # Enter a parse tree produced by HLangParser#return_statement.
     def enterReturn_statement(self, ctx:HLangParser.Return_statementContext):
         pass
 
     # Exit a parse tree produced by HLangParser#return_statement.
     def exitReturn_statement(self, ctx:HLangParser.Return_statementContext):
+        pass
+
+
+    # Enter a parse tree produced by HLangParser#return_statement_opt.
+    def enterReturn_statement_opt(self, ctx:HLangParser.Return_statement_optContext):
+        pass
+
+    # Exit a parse tree produced by HLangParser#return_statement_opt.
+    def exitReturn_statement_opt(self, ctx:HLangParser.Return_statement_optContext):
         pass
 
 

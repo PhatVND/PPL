@@ -14,7 +14,7 @@ Usage:
     python run.py test-lexer
     python run.py test-parser
     python run.py clean
-    
+
     # On macOS/Linux:
     python3 run.py help
     python3 run.py setup
@@ -191,6 +191,11 @@ class HLangBuilder:
         print(
             self.colors.yellow(
                 "  python3 run.py test-parser - Run parser tests and generate reports"
+            )
+        )
+        print(
+            self.colors.yellow(
+                "  python3 run.py test-checker - Run semantic checker tests and generate reports"
             )
         )
         print()
@@ -553,6 +558,88 @@ class HLangBuilder:
         )
         self.clean_cache()
 
+    def test_ast(self):
+        """Run AST generation tests."""
+        if not self.build_dir.exists():
+            print(
+                self.colors.yellow("Build directory not found. Running build first...")
+            )
+            self.build_grammar()
+
+        print(self.colors.yellow("Running AST generation tests..."))
+
+        # Clean and create reports directory
+        ast_report_dir = self.report_dir / "ast"
+        if ast_report_dir.exists():
+            shutil.rmtree(ast_report_dir)
+        self.report_dir.mkdir(exist_ok=True)
+
+        # Run tests
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(self.root_dir)
+
+        self.run_command(
+            [
+                str(self.venv_python3),
+                "-m",
+                "pytest",
+                "tests/test_ast_gen.py",
+                f"--html={ast_report_dir}/index.html",
+                "--timeout=5",
+                "--self-contained-html",
+                "-v",
+            ],
+            check=False,
+        )  # Don't fail on test failures
+
+        print(
+            self.colors.green(
+                f"AST generation tests completed. Reports generated at {ast_report_dir}/index.html"
+            )
+        )
+        self.clean_cache()
+
+    def test_checker(self):
+        """Run semantic checker tests."""
+        if not self.build_dir.exists():
+            print(
+                self.colors.yellow("Build directory not found. Running build first...")
+            )
+            self.build_grammar()
+
+        print(self.colors.yellow("Running semantic checker tests..."))
+
+        # Clean and create reports directory
+        checker_report_dir = self.report_dir / "checker"
+        if checker_report_dir.exists():
+            shutil.rmtree(checker_report_dir)
+        self.report_dir.mkdir(exist_ok=True)
+
+        # Run tests
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(self.root_dir)
+
+        self.run_command(
+            [
+                str(self.venv_python3),
+                "-m",
+                "pytest",
+                "tests/test_checker.py",
+                f"--html={checker_report_dir}/index.html",
+                "--timeout=5",
+                "--self-contained-html",
+                "-v",
+            ],
+            check=False,
+        )  # Don't fail on test failures
+
+        print(
+            self.colors.green(
+                f"Semantic checker tests completed. Reports generated at {checker_report_dir}/index.html"
+            )
+        )
+        self.clean_cache()
+
 
 def main():
     """Main entry point."""
@@ -571,11 +658,14 @@ Available commands:
   clean-venv    Remove virtual environment
   test-lexer    Run lexer tests and generate reports
   test-parser   Run parser tests and generate reports
+  test-ast      Run AST generation tests
+  test-checker  Run semantic checker tests
 
 Examples:
   python3 run.py setup
   python3 run.py build
   python3 run.py test-lexer
+  python3 run.py test-ast
         """,
     )
 
@@ -594,6 +684,8 @@ Examples:
             "clean-venv",
             "test-lexer",
             "test-parser",
+            "test-ast",
+            "test-checker",
         ],
         help="Command to execute",
     )
@@ -613,6 +705,8 @@ Examples:
         "clean-venv": builder.clean_venv,
         "test-lexer": builder.test_lexer,
         "test-parser": builder.test_parser,
+        "test-ast": builder.test_ast,
+        "test-checker": builder.test_checker,
     }
 
     if args.command in commands:

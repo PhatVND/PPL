@@ -279,12 +279,11 @@ class ASTGeneration(HLangVisitor):
     # expression: expression (PIPELINE | OR) expression1 | expression1;
     def visitExpression(self, ctx: HLangParser.ExpressionContext):
         if ctx.getChildCount() == 3:
-            # Note: Grammar includes ternary '?:', which is not in nodes.py. Ignoring for now.
             op = ctx.getChild(1).getText()
-            left = self.visit(ctx.expression())
-            right = self.visit(ctx.expression1())
+            left = self.visit(ctx.getChild(0))  # thay vì ctx.expression()
+            right = self.visit(ctx.getChild(2))  # thay vì ctx.expression1()
             return BinaryOp(left, op, right)
-        return self.visit(ctx.expression1())
+        return self.visit(ctx.getChild(0))  # ctx.expression1()
 
     # expression1: expression1 AND expression2 | expression2;
     def visitExpression1(self, ctx: HLangParser.Expression1Context):
