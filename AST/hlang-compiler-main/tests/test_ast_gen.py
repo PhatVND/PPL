@@ -122,5 +122,5 @@ def test_anonymous_function():
     let f = func(x: int) -> int { return x + 1; };
     let result = f(5);
     }"""
-    expected = "Program(funcs=[FuncDecl(main, [], void, [VarDecl(double, BlockStmt([ReturnStmt(BinaryOp(Identifier(x), *, IntegerLiteral(2)))]))])])"
+    expected = "Program(funcs=[FuncDecl(main, [], void, [VarDecl(f, BlockStmt([ReturnStmt(BinaryOp(Identifier(x), +, IntegerLiteral(1)))])), VarDecl(result, FunctionCall(Identifier(f), [IntegerLiteral(5)]))])])"
     assert str(ASTGenerator(source).generate()) == expected

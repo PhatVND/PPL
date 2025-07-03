@@ -66,7 +66,6 @@ IN: 'in';
 NEWLINE: '\r'? '\n' -> skip;
 
 // Arithmethic --------------------------------------------------------------------------
-INCREMENT: '++';
 ADD: '+';
 SUB: '-';
 MUL: '*';
@@ -226,7 +225,6 @@ list_expression_prime:
 expression:
 	expression PIPELINE expression1
 	| expression OR expression1
-	| expression1 QUESTION expression COLON expression
 	| expression1;
 expression1: expression1 AND expression2 | expression2;
 expression2:
@@ -247,7 +245,6 @@ expression4:
 	| expression4 MOD expression5
 	| expression5;
 expression5:
-	INCREMENT expression5
 	| NOT expression5
 	| SUB expression5
 	| ADD expression5
@@ -296,12 +293,10 @@ statement:
 	| break_statement
 	| continue_statement
 	| call_statement
-	| increment_statement
 	| block_statement
 	| return_statement;
 
 // ADD INCREMENT_STATEMENT, BLOCK_STATEMENT
-increment_statement: INCREMENT ID SEMICOLON;
 block_statement: function_body_container;
 //TODO declared_statement --------------------------------------------------------------------------
 declared_statement: constants_declared | function_declared;
@@ -314,8 +309,7 @@ while_statement:
 // variables_declared: LET ID ( COLON mytype (ASSIGN expression)? | ASSIGN expression ) SEMICOLON;
 variables_declared:
 	LET ID COLON mytype ASSIGN expression SEMICOLON
-	| LET ID ASSIGN expression SEMICOLON
-	| LET ID COLON mytype SEMICOLON;
+	| LET ID ASSIGN expression SEMICOLON;
 variables_declared_without_semi_for_loop: ID ASSIGN expression;
 
 //update constants_declared constants_declared: CONST ID (COLON mytype)? ASSIGN expression
