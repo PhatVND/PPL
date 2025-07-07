@@ -232,12 +232,26 @@ class ASTGeneration(HLangVisitor):
         
     # return_statement: RETURN return_statement_opt SEMICOLON;
     def visitReturn_statement(self, ctx: HLangParser.Return_statementContext):
-        value = self.visit(ctx.return_statement_opt())
+        print(">>> visitReturn_statement")
+        opt_ctx = ctx.return_statement_opt()
+        value = self.visit(opt_ctx) if opt_ctx else None
+        print(">>> Return value from return_statement_opt:", value)
         return ReturnStmt(value)
+
         
     # return_statement_opt: expression | ;
     def visitReturn_statement_opt(self, ctx: HLangParser.Return_statement_optContext):
-        return self.visit(ctx.expression()) if ctx.expression() else None
+        expr_ctx = ctx.expression()
+
+        # Nếu không có expression
+        if expr_ctx is None:
+            return None
+
+        # Nếu có expression nhưng là node rỗng (ví dụ: return;)
+        if expr_ctx.getText().strip() == "":
+            return None
+
+        return self.visit(expr_ctx)
 
     # break_statement: BREAK SEMICOLON;
     def visitBreak_statement(self, ctx: HLangParser.Break_statementContext):
