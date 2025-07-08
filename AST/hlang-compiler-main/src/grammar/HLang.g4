@@ -310,7 +310,6 @@ while_statement:
 variables_declared:
 	LET ID COLON mytype ASSIGN expression SEMICOLON
 	| LET ID ASSIGN expression SEMICOLON;
-variables_declared_without_semi_for_loop: ID ASSIGN expression;
 
 //update constants_declared constants_declared: CONST ID (COLON mytype)? ASSIGN expression
 // SEMICOLON?;
@@ -348,9 +347,13 @@ assignment_statement: (lhs_assignment_statement) ASSIGN (
 	) SEMICOLON; // Only ASSIGN allowed
 // assignment_operator rule removed as only ASSIGN is allowed.
 
+// lhs_assignment_statement:
+// 	ID
+// 	| lhs_assignment_statement (LBRACK expression RBRACK);
 lhs_assignment_statement:
-	ID
-	| lhs_assignment_statement (LBRACK expression RBRACK);
+	ID lhs_assignment_statement_prime | ID;
+lhs_assignment_statement_prime: LBRACK expression RBRACK
+								| LBRACK expression RBRACK lhs_assignment_statement_prime; // Array access
 // lhs_assignment_statement DOT ID removed (as structs are removed)
 
 assignment_statement_without_semi_for_loop:

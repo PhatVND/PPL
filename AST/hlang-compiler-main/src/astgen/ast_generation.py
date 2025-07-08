@@ -157,29 +157,53 @@ class ASTGeneration(HLangVisitor):
         return Assignment(lvalue, value)
 
     # lhs_assignment_statement: ID | lhs_assignment_statement LBRACK expression RBRACK;
-    def visitLhs_assignment_statement(self, ctx: HLangParser.Lhs_assignment_statementContext):
-        if ctx.getChildCount() == 1:
-            return IdLValue(ctx.ID().getText())
+    # def visitLhs_assignment_statement(self, ctx: HLangParser.Lhs_assignment_statementContext):
+    #     if ctx.getChildCount() == 1:
+    #         return IdLValue(ctx.ID().getText())
         
-        array = self.visit(ctx.lhs_assignment_statement())
-        # The LValue AST nodes expect expressions, not LValues, for the array part.
-        # This requires a conversion or a shared representation. We'll build it recursively.
-        # This is a tricky part where parser grammar and AST structure might mismatch.
-        # A simple solution is to rebuild the expression from the LValue.
-        # Let's assume a simpler conversion for now.
-        if isinstance(array, IdLValue):
-            array_expr = Identifier(array.name)
-        elif isinstance(array, ArrayAccessLValue):
-            # This reconstructs the expression part of the LValue
-            def lvalue_to_expr(lval):
-                if isinstance(lval, IdLValue):
-                    return Identifier(lval.name)
-                elif isinstance(lval, ArrayAccessLValue):
-                    return ArrayAccess(lvalue_to_expr(lval.array), lval.index)
-            array_expr = lvalue_to_expr(array)
+    #     array = self.visit(ctx.lhs_assignment_statement())
+    #     # The LValue AST nodes expect expressions, not LValues, for the array part.
+    #     # This requires a conversion or a shared representation. We'll build it recursively.
+    #     # This is a tricky part where parser grammar and AST structure might mismatch.
+    #     # A simple solution is to rebuild the expression from the LValue.
+    #     # Let's assume a simpler conversion for now.
+    #     if isinstance(array, IdLValue):
+    #         array_expr = Identifier(array.name)
+    #     elif isinstance(array, ArrayAccessLValue):
+    #         # This reconstructs the expression part of the LValue
+    #         def lvalue_to_expr(lval):
+    #             if isinstance(lval, IdLValue):
+    #                 return Identifier(lval.name)
+    #             elif isinstance(lval, ArrayAccessLValue):
+    #                 return ArrayAccess(lvalue_to_expr(lval.array), lval.index)
+    #         array_expr = lvalue_to_expr(array)
             
-        index = self.visit(ctx.expression())
-        return ArrayAccessLValue(array_expr, index)
+    #     index = self.visit(ctx.expression())
+    #     return ArrayAccessLValue(array_expr, index)
+
+    # 1) Thu thập tất cả các biểu thức trong chuỗi [expr][expr]…
+    def visitLhs_assignment_statement_prime(self, ctx: HLangParser.Lhs_assignment_statement_primeContext):
+        indices = []
+        current = ctx
+        # Lặp cho đến khi không còn prime nối tiếp
+        while current is not None:
+            indices.append(self.visit(current.expression()))
+            current = current.lhs_assignment_statement_prime()
+        return indices
+
+    # 2) Xây dựng l-value cho assignment: phải là Identifier (Expr), không phải IdLValue
+    def visitLhs_assignment_statement(self, ctx: HLangParser.Lhs_assignment_statementContext):
+        # Nếu không có '[...]', đây là ID đơn thuần, dùng IdLValue
+        prime = ctx.lhs_assignment_statement_prime()
+        if prime is None:
+            return IdLValue(ctx.ID().getText())
+
+        # Ngược lại, là array-access: khởi tạo base Expr từ Identifier
+        base_expr = Identifier(ctx.ID().getText())
+        # Lấy list các index và lần lượt bọc thành ArrayAccessLValue
+        for idx in self.visit(prime):
+            base_expr = ArrayAccessLValue(base_expr, idx)
+        return base_expr
 
     # if_statement: IF (LPAREN expression RPAREN) (function_body_container) else_if_clause_opt else_clause_opt;
     def visitIf_statement(self, ctx: HLangParser.If_statementContext):
@@ -232,10 +256,10 @@ class ASTGeneration(HLangVisitor):
         
     # return_statement: RETURN return_statement_opt SEMICOLON;
     def visitReturn_statement(self, ctx: HLangParser.Return_statementContext):
-        print(">>> visitReturn_statement")
+        # print(">>> visitReturn_statement")
         opt_ctx = ctx.return_statement_opt()
         value = self.visit(opt_ctx) if opt_ctx else None
-        print(">>> Return value from return_statement_opt:", value)
+        # print(">>> Return value from return_statement_opt:", value)
         return ReturnStmt(value)
 
         
