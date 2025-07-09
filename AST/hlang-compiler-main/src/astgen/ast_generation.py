@@ -8,13 +8,29 @@ from functools import reduce
 from build.HLangVisitor import HLangVisitor
 from build.HLangParser import HLangParser
 from src.utils.nodes import *
+import logging
 
+# RẤT QUAN TRỌNG: Đảm bảo dòng cấu hình logging này nằm ở đầu file ast_generation.py
+# và chỉ được gọi MỘT LẦN. Mức độ (level) phải là DEBUG để thấy tất cả các log.
+logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(message)s')
 
 class ASTGeneration(HLangVisitor):
     # ============================================================================
     # Program and Top-level Declarations
     # ============================================================================
+    def visit(self, tree):
+        if tree is None:
+            print("DEBUG_VISIT: Ngữ cảnh 'tree' là None. Trả về None.")
+            return None
 
+        print(f"DEBUG_VISIT: Thăm ngữ cảnh loại: {type(tree).__name__}, văn bản: {tree.getText()!r}")
+        
+        res = super().visit(tree)
+
+        if res is None:
+            print(f"⚠️ visit{type(tree).__name__} đã trả về None cho văn bản: {tree.getText()!r}. Điều này có nghĩa là không có node AST nào được tạo cho ngữ cảnh này.")
+        return res
+    
     # program: declared_statement_list EOF;
     def visitProgram(self, ctx: HLangParser.ProgramContext):
         declarations = self.visit(ctx.declared_statement_list())
@@ -310,9 +326,28 @@ class ASTGeneration(HLangVisitor):
 
     # list_expression_prime: expression COMMA list_expression_prime | expression;
     def visitList_expression_prime(self, ctx: HLangParser.List_expression_primeContext):
+        print("hẹ hẹ", ctx.getText().strip())
         if ctx.getChildCount() == 1:
+            if ctx.getText().strip() == "":
+                print("Child 1 is empty, returning empty list")
+                return []
             return [self.visit(ctx.expression())]
         return [self.visit(ctx.expression())] + self.visit(ctx.list_expression_prime())
+        
+        # elements = []
+        # # Biểu thức đầu tiên luôn có mặt
+        # first_expression = self.visit(ctx.expression())
+        # if first_expression is not None:
+        #     elements.append(first_expression)
+
+        # # Kiểm tra xem có dấu phẩy và list_expression_prime còn lại không (trường hợp đệ quy)
+        # if ctx.COMMA(): # Kiểm tra token COMMA
+        #     # Đệ quy thăm phần còn lại của danh sách
+        #     rest_of_expressions = self.visit(ctx.list_expression_prime())
+        #     if rest_of_expressions is not None: # Đảm bảo kết quả đệ quy không phải là None
+        #         elements.extend(rest_of_expressions)
+        
+        # return elements
 
     # expression: expression (PIPELINE | OR) expression1 | expression1;
     def visitExpression(self, ctx: HLangParser.ExpressionContext):
@@ -377,12 +412,12 @@ class ASTGeneration(HLangVisitor):
             
         if ctx.function_call(): # Function Call
             return self.visit(ctx.function_call())
-            
-        if ctx.ID() and not ctx.LPAREN(): # Identifier
-            return Identifier(ctx.ID().getText())
-            
+                
         if ctx.literal(): # Literal
             return self.visit(ctx.literal())
+        
+        if ctx.ID() and not ctx.LPAREN(): # Identifier
+            return Identifier(ctx.ID().getText())
 
         if ctx.expression7(): # Parenthesized expression
             return self.visit(ctx.expression7())
@@ -390,7 +425,7 @@ class ASTGeneration(HLangVisitor):
         # Other grammar rules like builtin_func, anonymous_function are not directly in nodes.py
         # and are handled as generic FunctionCall/Identifier for now.
         return self.visit(ctx.getChild(0))
-
+    
     # expression7: LPAREN expression RPAREN;
     def visitExpression7(self, ctx: HLangParser.Expression7Context):
         return self.visit(ctx.expression())
@@ -422,7 +457,10 @@ class ASTGeneration(HLangVisitor):
             return StringLiteral(ctx.STRING_LIT().getText())
         if ctx.TRUE() or ctx.FALSE():
             return BooleanLiteral(ctx.getChild(0).getText() == 'true')
-
+        else: # THÊM KHỐI ELSE NÀY ĐỂ BẮT TẤT CẢ CÁC TRƯỜNG HỢP KHÁC
+            print(f"ERROR: visitLiteral_primitive: Không tìm thấy loại literal phù hợp cho ngữ cảnh: {ctx.getText()!r}. Trả về None.")
+            return None
+    
     # array_literal: LBRACK list_expression RBRACK;
     def visitArray_literal(self, ctx: HLangParser.Array_literalContext):
         # HLang spec uses a simpler array literal form `[1, 2, 3]`

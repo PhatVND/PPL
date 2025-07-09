@@ -172,9 +172,9 @@ literal: literal_primitive | array_literal;
 literal_primitive:
 	INTEGER_LIT
 	| FLOAT_LIT
-	| STRING_LIT
 	| TRUE
-	| FALSE;
+	| FALSE
+	| STRING_LIT;
 // NIL removed as not in spec
 
 // NEW UPDATE, FUNCTION_TYPE HERE
@@ -250,19 +250,16 @@ expression5:
 	| ADD expression5
 	| expression6;
 expression6:
-	expression6 (
-		LBRACK expression RBRACK
-	) // 6.4 pdf --> Accessing array elements. VD:  a[2][3], b[4] ...
-	| function_call // Function call
+	expression6 (LBRACK expression RBRACK) 	
+	| function_call 
+	| literal
 	| expression6 DOT ID
 	| expression6 DOT ID LPAREN list_expression RPAREN
 	| builtin_func LPAREN list_expression RPAREN
-	| ID LPAREN list_expression RPAREN
 	| primitive_type
-	| ID
 	| anonymous_function
-	| literal
-	| expression7;
+	| expression7
+	| ID;
 // HÀM KHÔNG TÊN
 
 anonymous_function:
@@ -294,7 +291,8 @@ statement:
 	| continue_statement
 	| call_statement
 	| block_statement
-	| return_statement;
+	| return_statement
+	| expression SEMICOLON;
 
 // ADD INCREMENT_STATEMENT, BLOCK_STATEMENT
 block_statement: function_body_container;
@@ -345,11 +343,7 @@ parameter: ID COLON mytype;
 assignment_statement: (lhs_assignment_statement) ASSIGN (
 		expression
 	) SEMICOLON; // Only ASSIGN allowed
-// assignment_operator rule removed as only ASSIGN is allowed.
 
-// lhs_assignment_statement:
-// 	ID
-// 	| lhs_assignment_statement (LBRACK expression RBRACK);
 lhs_assignment_statement:
 	ID lhs_assignment_statement_prime | ID;
 lhs_assignment_statement_prime: LBRACK expression RBRACK
@@ -360,12 +354,6 @@ assignment_statement_without_semi_for_loop:
 	ID ASSIGN (expression); // Only ASSIGN allowed
 
 // TODO if_statement: --------------------------------------------------------------------------
-// update if_statement if_statement: IF (LPAREN expression RPAREN) (function_body_container) (
-// else_if_clause )? (else_clause)?; // SEMICOLON removed else_if_clause: (else_if_clause_content)
-// else_if_clause | (else_if_clause_content); else_if_clause_content: ELSE IF (LPAREN expression
-// RPAREN) (function_body_container);
-
-// else_clause: ELSE function_body_container;
 
 if_statement:
 	IF (LPAREN expression RPAREN) (function_body_container) else_if_clause_opt else_clause_opt;
@@ -397,7 +385,7 @@ continue_statement: CONTINUE SEMICOLON;
 call_statement:
 	function_call SEMICOLON
 	| builtin_func LPAREN list_expression RPAREN SEMICOLON
-	| method_call SEMICOLON;
+	| ID DOT ID LPAREN list_expression RPAREN SEMICOLON;
 
 method_call: ID DOT ID LPAREN list_expression RPAREN;
 // TODO return_statement: ------------------------------------------------------------------------

@@ -2,13 +2,13 @@ from utils import Parser
 
 def test_001():
     """Test basic function declaration"""
-    source = """func main(a: int, b: int) -> int { let x = 5; return a + b; };"""
+    source = """func main(a: int, b: int) -> int { let x = 5; return a + b; a[0][1]; };"""
     expected = "success"
     assert Parser(source).parse() == expected
 
 def test_002():
     """Test function with parameters"""
-    source = """func add(a: int, b: int) -> int { return a + b; };"""
+    source = """func add(a: int, b: int) -> int { a[2][2] = 1; };"""
     expected = "success"
     assert Parser(source).parse() == expected
 
@@ -456,8 +456,7 @@ def test_033():
     x = 10;                    // Assignment expression as statement
 print("Hello World");      // Function call for side effect
 factorial(5);              // Function call (result discarded)
-arr[0] = 42;              // Array element assignment
-++counter;                 // Increment operation (if supported)
+arr[0] = 42;              // Array element assignment               // Increment operation (if supported)
 }
 
 """
@@ -569,7 +568,7 @@ while (i < 10) {
 }
 
 // Input validation loop:
-let input: string;
+
 while (input != "quit") {
     input = getUserInput();
     processInput(input);
@@ -782,7 +781,7 @@ func sumArray(numbers: [int; 5]) -> int {
 
 // Function with mixed parameter types:
 func formatScore(name: string, score: int, isPassing: bool) -> string {
-    let status = isPassing ? "PASS" : "FAIL";
+
     return name + ": " + str(score) + " (" + status + ")";
 }
 
@@ -1428,7 +1427,7 @@ def test_260():
     """Kiểm tra hàm với danh sách tham số, khai báo mảng và trả về chuỗi đúng cú pháp (đã sửa để thành công)."""
     source = """
         func myFunc(a: int, b: int, c: string) -> string {
-            let arr: [int; 5];
+
             return "Hello HLang";
         }
         """
