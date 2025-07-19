@@ -52,28 +52,25 @@ class StaticChecker(ASTVisitor):
     def check_redeclared(self, name: str, kind: str, scope: Dict[str, Tuple]):
         if name in scope:
             raise Redeclared(kind, name)
-        
+            
     def visit_program(self, ast: Program, env):
         global_scope = env[0]
 
-        # Collect constants
         for const in ast.const_decls:
             self.check_redeclared(const.name, 'Constant', global_scope)
-            const_type = self.visit(const.expr, env) if const.expr else None
+            const_type = self.visit_expression(const.value, env) if const.value else None
             if const.const_type:
                 if const_type:
                     self.check_type_compatibility(const.const_type, const_type, const)
                 const_type = const.const_type
             if not const_type:
                 raise TypeCannotBeInferred(const)
-            global_scope[const.name] = (const_type, 'Constant', const.expr)
+            global_scope[const.name] = (const_type, 'Constant', const.value)
 
-        # Collect function declarations
         for func in ast.func_decls:
             self.check_redeclared(func.name, 'Function', global_scope)
             global_scope[func.name] = (func, 'Function', None)
 
-        # Check entry point
         main = self.lookup("main", env, 'Function')
         if not main:
             raise NoEntryPoint()
@@ -81,10 +78,8 @@ class StaticChecker(ASTVisitor):
         if not isinstance(main_decl, FuncDecl) or len(main_decl.params) != 0 or not isinstance(main_decl.return_type, VoidType):
             raise NoEntryPoint()
 
-        # Check function bodies
         for func in ast.func_decls:
-            self.visit(func, env)
-
+            self.visit_func_decl(func, env)
     def visit_fun_decl(self, ast: FuncDecl, env):
         self.current_function = ast
         param_scope = {}
@@ -97,8 +92,30 @@ class StaticChecker(ASTVisitor):
     def visit_block_stmt(self, ast: BlockStmt, env):
         new_scope = [{}]
         for stmt in ast.statements:
-            self.visit(stmt, new_scope + env)
-
+            if isinstance(stmt, VarDecl):
+                self.visit_var_decl(stmt, new_scope + env)
+            elif isinstance(stmt, ConstDecl):
+                self.visit_const_decl(stmt, new_scope + env)
+            elif isinstance(stmt, Assignment):
+                self.visit_assignment(stmt, new_scope + env)
+            elif isinstance(stmt, IfStmt):
+                self.visit_if_stmt(stmt, new_scope + env)
+            elif isinstance(stmt, WhileStmt):
+                self.visit_while_stmt(stmt, new_scope + env)
+            elif isinstance(stmt, ForStmt):
+                self.visit_for_stmt(stmt, new_scope + env)
+            elif isinstance(stmt, ReturnStmt):
+                self.visit_return_stmt(stmt, new_scope + env)
+            elif isinstance(stmt, BreakStmt):
+                self.visit_break_stmt(stmt, new_scope + env)
+            elif isinstance(stmt, ContinueStmt):
+                self.visit_continue_stmt(stmt, new_scope + env)
+            elif isinstance(stmt, ExprStmt):
+                self.visit_expr_stmt(stmt, new_scope + env)
+            elif isinstance(stmt, BlockStmt):
+                self.visit_block_stmt(stmt, new_scope + env)
+            else:
+                raise Exception(f"Unknown statement type: {type(stmt)}")
     def visit_var_decl(self, ast: VarDecl, env):
         cur = env[0]
         self.check_redeclared(ast.name, 'Variable', cur)
@@ -279,21 +296,44 @@ class StaticChecker(ASTVisitor):
     def visit_const_decl(self, ast: ConstDecl, env):
         cur = env[0]
         self.check_redeclared(ast.name, 'Constant', cur)
-        const_type = self.visit(ast.expr, env) if ast.expr else None
+        const_type = self.visit_expression(ast.value, env) if ast.value else None
         if ast.const_type:
             if const_type:
                 self.check_type_compatibility(ast.const_type, const_type, ast)
             const_type = ast.const_type
         if not const_type:
             raise TypeCannotBeInferred(ast)
-        cur[ast.name] = (const_type, 'Constant', ast.expr)
+        cur[ast.name] = (const_type, 'Constant', ast.value)
     def visit_func_decl(self, ast: FuncDecl, env):
         self.current_function = ast
         param_scope = {}
         for p in ast.params:
             self.check_redeclared(p.name, 'Parameter', param_scope)
             param_scope[p.name] = (p.param_type, 'Parameter', None)
-        self.visit(ast.body, [param_scope] + env)
+        self.visit_block_stmt(ast.body, [param_scope] + env)  # ✅ đã sửa
         self.current_function = None
     def visit_param(self, ast: Param, env):
         return ast.param_type
+    def visit_expression(self, expr, env):
+        if isinstance(expr, BinaryOp):
+            return self.visit_binary_op(expr, env)
+        elif isinstance(expr, UnaryOp):
+            return self.visit_unary_op(expr, env)
+        elif isinstance(expr, FunctionCall):
+            return self.visit_function_call(expr, env)
+        elif isinstance(expr, ArrayAccess):
+            return self.visit_array_access(expr, env)
+        elif isinstance(expr, Identifier):
+            return self.visit_identifier(expr, env)
+        elif isinstance(expr, IntegerLiteral):
+            return self.visit_integer_literal(expr, env)
+        elif isinstance(expr, FloatLiteral):
+            return self.visit_float_literal(expr, env)
+        elif isinstance(expr, BooleanLiteral):
+            return self.visit_boolean_literal(expr, env)
+        elif isinstance(expr, StringLiteral):
+            return self.visit_string_literal(expr, env)
+        elif isinstance(expr, ArrayLiteral):
+            return self.visit_array_literal(expr, env)
+        else:
+            raise Exception(f"Unknown expression type: {type(expr)}")
