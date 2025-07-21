@@ -64,3 +64,33 @@ func main() -> void {
 """
     expected = "Must In Loop: BreakStmt()"
     assert Checker(source).check_from_source() == expected
+def test_007():
+    """Test continue not in loop error"""
+    source = """
+func main() -> void {
+    continue;
+};
+"""
+    expected = "Must In Loop: ContinueStmt()"
+    assert Checker(source).check_from_source() == expected
+def test_009():
+    """Test return type mismatch in function"""
+    source = """
+func compute() -> int {
+    return "wrong";
+};
+
+func main() -> void {}
+"""
+    expected = "Type Mismatch In Statement: ReturnStmt(StringLiteral('wrong'))"
+    assert Checker(source).check_from_source() == expected
+def test_011():
+    """Test array access with non-integer index"""
+    source = """
+func main() -> void {
+    let a: [int; 5] = [1, 2, 3, 4, 5];
+    let x = a["index"];
+};
+"""
+    expected = "Type Mismatch In Expression: ArrayAccess(Identifier(a), StringLiteral('index'))"
+    assert Checker(source).check_from_source() == expected

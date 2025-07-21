@@ -65,10 +65,8 @@ class ASTGeneration(HLangVisitor):
         name = ctx.ID().getText()
         params = self.visit(ctx.parameter_list())
         return_type = self.visit(ctx.arrow_mytype_opt())
-        body = self.visit(ctx.function_body_container())
-        
-        # Function body returns a BlockStmt, which contains a list of statements
-        return FuncDecl(name, params, return_type, body.statements)
+        body = self.visit(ctx.function_body_container())  # ✅ body là BlockStmt
+        return FuncDecl(name, params, return_type, body)  # ✅ giữ nguyên, KHÔNG dùng body.statements
 
     # parameter_list: LPAREN parameter_list_opt RPAREN;
     def visitParameter_list(self, ctx: HLangParser.Parameter_listContext):

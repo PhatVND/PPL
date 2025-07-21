@@ -26,7 +26,7 @@ class StaticChecker(ASTVisitor):
     def __init__(self, ast: Program):
         self.ast = ast
         self.global_envi = {
-            "print": (FuncDecl("print", [Param("val", StringType())], VoidType(), BlockStmt([])), 'Function', None),
+            "print": (FuncDecl("print", [Param("val", StringType())], VoidType(), []), 'Function', None),
             "readInt": (FuncDecl("readInt", [], IntType(), BlockStmt([])), 'Function', None),
             "readFloat": (FuncDecl("readFloat", [], FloatType(), BlockStmt([])), 'Function', None),
             "readString": (FuncDecl("readString", [], StringType(), BlockStmt([])), 'Function', None),
@@ -58,14 +58,14 @@ class StaticChecker(ASTVisitor):
 
         for const in ast.const_decls:
             self.check_redeclared(const.name, 'Constant', global_scope)
-            const_type = self.visit_expression(const.value, env) if const.value else None
-            if const.const_type:
-                if const_type:
-                    self.check_type_compatibility(const.const_type, const_type, const)
-                const_type = const.const_type
-            if not const_type:
+            type_annotation = self.visit_expression(const.value, env) if const.value else None
+            if const.type_annotation:
+                if type_annotation:
+                    self.check_type_compatibility(const.type_annotation, type_annotation, const)
+                type_annotation = const.type_annotation
+            if not type_annotation:
                 raise TypeCannotBeInferred(const)
-            global_scope[const.name] = (const_type, 'Constant', const.value)
+            global_scope[const.name] = (type_annotation, 'Constant', const.value)
 
         for func in ast.func_decls:
             self.check_redeclared(func.name, 'Function', global_scope)
@@ -80,18 +80,26 @@ class StaticChecker(ASTVisitor):
 
         for func in ast.func_decls:
             self.visit_func_decl(func, env)
-    def visit_fun_decl(self, ast: FuncDecl, env):
+    def visit_func_decl(self, ast: FuncDecl, env):
+        print("DEBUG BODY:", ast.body)
+        print("DEBUG TYPE:", type(ast.body))
         self.current_function = ast
         param_scope = {}
         for p in ast.params:
             self.check_redeclared(p.name, 'Parameter', param_scope)
             param_scope[p.name] = (p.param_type, 'Parameter', None)
-        self.visit(ast.body, [param_scope] + env)
+
+        body = ast.body
+        if isinstance(body, list):
+            body = BlockStmt(body)
+
+        self.visit_block_stmt(body, [param_scope] + env)
         self.current_function = None
 
     def visit_block_stmt(self, ast: BlockStmt, env):
         new_scope = [{}]
         for stmt in ast.statements:
+            print("DEBUG BLOCK: ", stmt)
             if isinstance(stmt, VarDecl):
                 self.visit_var_decl(stmt, new_scope + env)
             elif isinstance(stmt, ConstDecl):
@@ -119,11 +127,11 @@ class StaticChecker(ASTVisitor):
     def visit_var_decl(self, ast: VarDecl, env):
         cur = env[0]
         self.check_redeclared(ast.name, 'Variable', cur)
-        rhs_type = self.visit(ast.expr, env) if ast.expr else None
-        typ = ast.var_type
+        rhs_type = self.visit_expression(ast.value, env) if ast.value else None
+        typ = ast.type_annotation
         if typ:
             if rhs_type:
-                self.check_type_compatibility(typ, rhs_type, ast)
+                self.check_type_compatibility(typ, rhs_type, ast, is_stmt=True)
         else:
             if not rhs_type:
                 raise TypeCannotBeInferred(ast)
@@ -131,13 +139,16 @@ class StaticChecker(ASTVisitor):
         cur[ast.name] = (typ, 'Variable', None)
 
     def visit_assignment(self, ast: Assignment, env):
-        rhs_type = self.visit(ast.expr, env)
-        lhs_type = self.visit(ast.lvalue, env)
+        rhs_type = self.visit_expression(ast.value, env)
         if isinstance(ast.lvalue, IdLValue):
+            lhs_type = self.visit_id_lvalue(ast.lvalue, env)
             if self.lookup(ast.lvalue.name, env, 'Constant'):
                 raise TypeMismatchInStatement(ast)
+        elif isinstance(ast.lvalue, ArrayAccessLValue):
+            lhs_type = self.visit_array_access_lvalue(ast.lvalue, env)
+        else:
+            raise Exception(f"Unknown lvalue type: {type(ast.lvalue)}")
         self.check_type_compatibility(lhs_type, rhs_type, ast)
-
     def visit_identifier(self, ast: Identifier, env):
         info = self.lookup_any(ast.name, env)
         if not info or info[1] == 'Function':
@@ -160,41 +171,127 @@ class StaticChecker(ASTVisitor):
         if len(ast.args) != len(decl.params):
             raise TypeMismatchInExpression(ast)
         for i in range(len(ast.args)):
-            arg_type = self.visit(ast.args[i], env)
+            arg_type = self.visit_expression(ast.args[i], env)
             param_type = decl.params[i].param_type
             self.check_type_compatibility(param_type, arg_type, ast)
         return decl.return_type
 
 
     def visit_expr_stmt(self, ast: ExprStmt, env):
-        self.visit(ast.expr, env)
+        self.visit_expression(ast.expr, env)
 
     def visit_if_stmt(self, ast: IfStmt, env):
-        cond_type = self.visit(ast.cond, env)
+        # Kiểm tra điều kiện chính (if)
+        cond_type = self.visit_expression(ast.cond, env)
         if not isinstance(cond_type, BoolType):
             raise TypeMismatchInStatement(ast)
-        self.visit(ast.then_stmt, env)
-        for cond, then in ast.elif_branches:
-            if not isinstance(self.visit(cond, env), BoolType):
-                raise TypeMismatchInStatement(ast)
-            self.visit(then, env)
-        if ast.else_stmt:
-            self.visit(ast.else_stmt, env)
 
+        # Xử lý then_stmt
+        if isinstance(ast.then_stmt, BlockStmt):
+            self.visit_block_stmt(ast.then_stmt, env)
+        elif isinstance(ast.then_stmt, ExprStmt):
+            self.visit_expr_stmt(ast.then_stmt, env)
+        elif isinstance(ast.then_stmt, IfStmt):
+            self.visit_if_stmt(ast.then_stmt, env)
+        elif isinstance(ast.then_stmt, ReturnStmt):
+            self.visit_return_stmt(ast.then_stmt, env)
+        else:
+            raise Exception(f"Unsupported then_stmt type: {type(ast.then_stmt)}")
+
+        # Xử lý các nhánh elif
+        for cond, then in ast.elif_branches:
+            cond_type = self.visit_expression(cond, env)
+            if not isinstance(cond_type, BoolType):
+                raise TypeMismatchInStatement(ast)
+            
+            if isinstance(then, BlockStmt):
+                self.visit_block_stmt(then, env)
+            elif isinstance(then, ExprStmt):
+                self.visit_expr_stmt(then, env)
+            elif isinstance(then, IfStmt):
+                self.visit_if_stmt(then, env)
+            elif isinstance(then, ReturnStmt):
+                self.visit_return_stmt(then, env)
+            else:
+                raise Exception(f"Unsupported elif-then type: {type(then)}")
+
+        # Xử lý else_stmt nếu có
+        if ast.else_stmt:
+            if isinstance(ast.else_stmt, BlockStmt):
+                self.visit_block_stmt(ast.else_stmt, env)
+            elif isinstance(ast.else_stmt, ExprStmt):
+                self.visit_expr_stmt(ast.else_stmt, env)
+            elif isinstance(ast.else_stmt, IfStmt):
+                self.visit_if_stmt(ast.else_stmt, env)
+            elif isinstance(ast.else_stmt, ReturnStmt):
+                self.visit_return_stmt(ast.else_stmt, env)
+            else:
+                raise Exception(f"Unsupported else_stmt type: {type(ast.else_stmt)}")
     def visit_while_stmt(self, ast: WhileStmt, env):
-        if not isinstance(self.visit(ast.cond, env), BoolType):
+        # Kiểm tra điều kiện là biểu thức boolean
+        cond_type = self.visit_expression(ast.cond, env)
+        if not isinstance(cond_type, BoolType):
             raise TypeMismatchInStatement(ast)
+
+        # Tăng loop level
         self.loop_level += 1
-        self.visit(ast.body, env)
+
+        # Thăm phần thân vòng lặp
+        if isinstance(ast.body, BlockStmt):
+            self.visit_block_stmt(ast.body, env)
+        elif isinstance(ast.body, ExprStmt):
+            self.visit_expr_stmt(ast.body, env)
+        elif isinstance(ast.body, IfStmt):
+            self.visit_if_stmt(ast.body, env)
+        elif isinstance(ast.body, WhileStmt):
+            self.visit_while_stmt(ast.body, env)
+        elif isinstance(ast.body, ForStmt):
+            self.visit_for_stmt(ast.body, env)
+        elif isinstance(ast.body, ReturnStmt):
+            self.visit_return_stmt(ast.body, env)
+        elif isinstance(ast.body, ContinueStmt):
+            self.visit_continue_stmt(ast.body, env)
+        elif isinstance(ast.body, BreakStmt):
+            self.visit_break_stmt(ast.body, env)
+        else:
+            raise Exception(f"Unsupported while-body type: {type(ast.body)}")
+
+        # Giảm loop level
         self.loop_level -= 1
 
     def visit_for_stmt(self, ast: ForStmt, env):
-        iter_type = self.visit(ast.iterable, env)
+        # Kiểm tra iterable phải là mảng
+        iter_type = self.visit_expression(ast.iterable, env)
         if not isinstance(iter_type, ArrayType):
             raise TypeMismatchInStatement(ast)
+
+        # Tăng loop level
         self.loop_level += 1
+
+        # Tạo scope mới với biến lặp
         new_scope = {ast.var: (iter_type.element_type, 'Variable', None)}
-        self.visit(ast.body, [new_scope] + env)
+
+        # Thăm thân vòng lặp
+        if isinstance(ast.body, BlockStmt):
+            self.visit_block_stmt(ast.body, [new_scope] + env)
+        elif isinstance(ast.body, ExprStmt):
+            self.visit_expr_stmt(ast.body, [new_scope] + env)
+        elif isinstance(ast.body, IfStmt):
+            self.visit_if_stmt(ast.body, [new_scope] + env)
+        elif isinstance(ast.body, WhileStmt):
+            self.visit_while_stmt(ast.body, [new_scope] + env)
+        elif isinstance(ast.body, ForStmt):
+            self.visit_for_stmt(ast.body, [new_scope] + env)
+        elif isinstance(ast.body, ReturnStmt):
+            self.visit_return_stmt(ast.body, [new_scope] + env)
+        elif isinstance(ast.body, BreakStmt):
+            self.visit_break_stmt(ast.body, [new_scope] + env)
+        elif isinstance(ast.body, ContinueStmt):
+            self.visit_continue_stmt(ast.body, [new_scope] + env)
+        else:
+            raise Exception(f"Unsupported for-body type: {type(ast.body)}")
+
+        # Giảm loop level
         self.loop_level -= 1
 
     def visit_break_stmt(self, ast: BreakStmt, env):
@@ -208,41 +305,49 @@ class StaticChecker(ASTVisitor):
     def visit_return_stmt(self, ast: ReturnStmt, env):
         if not self.current_function:
             return
+
         expected = self.current_function.return_type
-        if ast.expr:
-            actual = self.visit(ast.expr, env)
+
+        if ast.value:
+            actual = self.visit_expression(ast.value, env)
             if isinstance(expected, VoidType):
                 raise TypeMismatchInStatement(ast)
-            self.check_type_compatibility(expected, actual, ast)
+            self.check_type_compatibility(expected, actual, ast, is_stmt=True)  # ✅ Gọi đúng 3 tham số
         else:
             if not isinstance(expected, VoidType):
                 raise TypeMismatchInStatement(ast)
 
     def visit_binary_op(self, ast: BinaryOp, env):
-        left = self.visit(ast.left, env)
-        right = self.visit(ast.right, env)
-        op = ast.op
+        left = self.visit_expression(ast.left, env)
+        right = self.visit_expression(ast.right, env)
+        op = ast.operator
+
         if op in ['+', '-', '*', '/']:
             if isinstance(left, (IntType, FloatType)) and isinstance(right, (IntType, FloatType)):
                 return FloatType() if FloatType in [type(left), type(right)] else IntType()
             if op == '+' and isinstance(left, StringType) and isinstance(right, StringType):
                 return StringType()
+
         elif op == '%':
             if isinstance(left, IntType) and isinstance(right, IntType):
                 return IntType()
+
         elif op in ['==', '!=']:
             if type(left) == type(right) and not isinstance(left, (ArrayType, VoidType)):
                 return BoolType()
+
         elif op in ['<', '>', '<=', '>=']:
             if isinstance(left, (IntType, FloatType)) and isinstance(right, (IntType, FloatType)):
                 return BoolType()
+
         elif op in ['&&', '||']:
             if isinstance(left, BoolType) and isinstance(right, BoolType):
                 return BoolType()
+
         raise TypeMismatchInExpression(ast)
 
     def visit_unary_op(self, ast: UnaryOp, env):
-        operand = self.visit(ast.operand, env)
+        operand = self.visit_expression(ast.operand, env)
         if ast.op == '-' and isinstance(operand, (IntType, FloatType)):
             return operand
         if ast.op == '!' and isinstance(operand, BoolType):
@@ -250,8 +355,8 @@ class StaticChecker(ASTVisitor):
         raise TypeMismatchInExpression(ast)
 
     def visit_array_access(self, ast: ArrayAccess, env):
-        arr = self.visit(ast.array, env)
-        idx = self.visit(ast.index, env)
+        arr = self.visit_expression(ast.array, env)
+        idx = self.visit_expression(ast.index, env)
         if not isinstance(arr, ArrayType) or not isinstance(idx, IntType):
             raise TypeMismatchInExpression(ast)
         return arr.element_type
@@ -267,12 +372,12 @@ class StaticChecker(ASTVisitor):
     def visit_array_literal(self, ast, env):
         if not ast.elements:
             raise TypeCannotBeInferred(ast)
-        first = self.visit(ast.elements[0], env)
+        first = self.visit_expression(ast.elements[0], env)
         for e in ast.elements[1:]:
-            if not self.are_types_compatible(first, self.visit(e, env)):
+            if not self.are_types_compatible(first, self.visit_expression(e, env)):
                 raise TypeMismatchInStatement(ast)
         return ArrayType(first, len(ast.elements))
-
+    
     def visit_int_type(self, ast, env): return ast
     def visit_float_type(self, ast, env): return ast
     def visit_bool_type(self, ast, env): return ast
@@ -288,22 +393,23 @@ class StaticChecker(ASTVisitor):
                    type(expected.element_type) is type(actual.element_type)
         return type(expected) is type(actual)
 
-    def check_type_compatibility(self, expected, actual, node):
-        if not self.are_types_compatible(expected, actual):
-            if isinstance(node, (Assignment, ReturnStmt, IfStmt, WhileStmt, ForStmt)):
-                raise TypeMismatchInStatement(node)
-            raise TypeMismatchInExpression(node)
+    def check_type_compatibility(self, expected, actual, ast, is_stmt=False):
+        if type(expected) != type(actual):
+            if is_stmt:
+                raise TypeMismatchInStatement(ast)
+            else:
+                raise TypeMismatchInExpression(ast)
     def visit_const_decl(self, ast: ConstDecl, env):
         cur = env[0]
         self.check_redeclared(ast.name, 'Constant', cur)
-        const_type = self.visit_expression(ast.value, env) if ast.value else None
-        if ast.const_type:
-            if const_type:
-                self.check_type_compatibility(ast.const_type, const_type, ast)
-            const_type = ast.const_type
-        if not const_type:
+        type_annotation = self.visit_expression(ast.value, env) if ast.value else None
+        if ast.type_annotation:
+            if type_annotation:
+                self.check_type_compatibility(ast.type_annotation, type_annotation, ast)
+            type_annotation = ast.type_annotation
+        if not type_annotation:
             raise TypeCannotBeInferred(ast)
-        cur[ast.name] = (const_type, 'Constant', ast.value)
+        cur[ast.name] = (type_annotation, 'Constant', ast.value)
     def visit_func_decl(self, ast: FuncDecl, env):
         self.current_function = ast
         param_scope = {}
