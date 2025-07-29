@@ -18,18 +18,18 @@ class ASTGeneration(HLangVisitor):
     # ============================================================================
     # Program and Top-level Declarations
     # ============================================================================
-    def visit(self, tree):
-        if tree is None:
-            print("DEBUG_VISIT: Ngữ cảnh 'tree' là None. Trả về None.")
-            return None
+    # def visit(self, tree):
+    #     if tree is None:
+    #         print("DEBUG_VISIT: Ngữ cảnh 'tree' là None. Trả về None.")
+    #         return None
 
-        print(f"DEBUG_VISIT: Thăm ngữ cảnh loại: {type(tree).__name__}, văn bản: {tree.getText()!r}")
+    #     print(f"DEBUG_VISIT: Thăm ngữ cảnh loại: {type(tree).__name__}, văn bản: {tree.getText()!r}")
         
-        res = super().visit(tree)
+    #     res = super().visit(tree)
 
-        if res is None:
-            print(f"⚠️ visit{type(tree).__name__} đã trả về None cho văn bản: {tree.getText()!r}. Điều này có nghĩa là không có node AST nào được tạo cho ngữ cảnh này.")
-        return res
+    #     if res is None:
+    #         print(f"⚠️ visit{type(tree).__name__} đã trả về None cho văn bản: {tree.getText()!r}. Điều này có nghĩa là không có node AST nào được tạo cho ngữ cảnh này.")
+    #     return res
     
     # program: declared_statement_list EOF;
     def visitProgram(self, ctx: HLangParser.ProgramContext):
@@ -38,7 +38,9 @@ class ASTGeneration(HLangVisitor):
         const_decls = [decl for decl in declarations if isinstance(decl, ConstDecl)]
         func_decls = [decl for decl in declarations if isinstance(decl, FuncDecl)]
         
-        return Program(const_decls, func_decls)
+        program = Program(const_decls, func_decls)
+        program._original_order = declarations   # ⚠️ thêm dòng này
+        return program
 
     # declared_statement_list: (declared_statement) declared_statement_list | (declared_statement);
     def visitDeclared_statement_list(self, ctx: HLangParser.Declared_statement_listContext):
@@ -158,7 +160,6 @@ class ASTGeneration(HLangVisitor):
         name = ctx.ID().getText()
         type_annotation = self.visit(ctx.mytype()) if ctx.mytype() else None
         value = self.visit(ctx.expression()) if ctx.expression() else None
-        print("DEBUG VarDecl value:", value, type(value))
         # Nếu value là list → fix tại đây luôn:
         if isinstance(value, list):
             value = value[0] if value else None
@@ -324,10 +325,8 @@ class ASTGeneration(HLangVisitor):
 
     # list_expression_prime: expression COMMA list_expression_prime | expression;
     def visitList_expression_prime(self, ctx: HLangParser.List_expression_primeContext):
-        print("hẹ hẹ", ctx.getText().strip())
         if ctx.getChildCount() == 1:
             if ctx.getText().strip() == "":
-                print("Child 1 is empty, returning empty list")
                 return []
             return [self.visit(ctx.expression())]
         return [self.visit(ctx.expression())] + self.visit(ctx.list_expression_prime())
@@ -456,7 +455,6 @@ class ASTGeneration(HLangVisitor):
         if ctx.TRUE() or ctx.FALSE():
             return BooleanLiteral(ctx.getChild(0).getText() == 'true')
         else: # THÊM KHỐI ELSE NÀY ĐỂ BẮT TẤT CẢ CÁC TRƯỜNG HỢP KHÁC
-            print(f"ERROR: visitLiteral_primitive: Không tìm thấy loại literal phù hợp cho ngữ cảnh: {ctx.getText()!r}. Trả về None.")
             return None
     
     # array_literal: LBRACK list_expression RBRACK;
