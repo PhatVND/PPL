@@ -2453,7 +2453,7 @@ func main() -> void {
     printStr("hello", "world");
 }
 """
-    expected = "Type Mismatch In Expression: FunctionCall(Identifier(printStr), [StringLiteral('hello'), StringLiteral('world')])"
+    expected = "Type Mismatch In Statement: FunctionCall(Identifier(printStr), [StringLiteral('hello'), StringLiteral('world')])"
     assert Checker(source).check_from_source() == expected
 
 
@@ -2464,7 +2464,7 @@ func echo(s: string) -> void {
     print(s);
 }
 func main() -> void {
-    echo(10);
+    let a = echo(10);
 }
 """
     expected = "Type Mismatch In Expression: FunctionCall(Identifier(echo), [IntegerLiteral(10)])"
@@ -2478,7 +2478,7 @@ func check(flag: bool) -> void {
     if (flag) { print("yes"); }
 }
 func main() -> void {
-    check(3.14);
+    let a = check(3.14);
 }
 """
     expected = "Type Mismatch In Expression: FunctionCall(Identifier(check), [FloatLiteral(3.14)])"
@@ -2490,7 +2490,7 @@ def test_175():
     source = """
 func process(x: int) -> void {}
 func main() -> void {
-    process([1, 2, 3]);
+    let a = process([1, 2, 3]);
 }
 """
     expected = "Type Mismatch In Expression: FunctionCall(Identifier(process), [ArrayLiteral([IntegerLiteral(1), IntegerLiteral(2), IntegerLiteral(3)])])"
@@ -2503,7 +2503,7 @@ def test_176():
 func run(x: int, y: bool) -> void {}
 
 func main() -> void {
-    run();
+    let a = run();
 }
 """
     expected = "Type Mismatch In Expression: FunctionCall(Identifier(run), [])"
@@ -2511,34 +2511,28 @@ func main() -> void {
 
 
 def test_177():
-    """Extra arguments in method call"""
+    """Too many arguments to global function"""
     source = """
-type T struct {}
-
-func (t T) doThing() -> void {}
+func doThing() -> void {}
 
 func main() -> void {
-    var a T;
-    a.doThing(1);
+    let a = doThing(1);
 }
 """
-    expected = "Type Mismatch In Expression: FunctionCall(MemberAccess(Identifier(a), doThing), [IntegerLiteral(1)])"
+    expected = "Type Mismatch In Expression: FunctionCall(Identifier(doThing), [IntegerLiteral(1)])"
     assert Checker(source).check_from_source() == expected
 
 
 def test_178():
-    """Wrong type for struct method parameter"""
+    """Wrong argument type for function"""
     source = """
-type T struct {}
-
-func (t T) greet(s: string) -> void {}
+func greet(s: string) -> void {}
 
 func main() -> void {
-    var x T;
-    x.greet(true);
+    let a = greet(true);
 }
 """
-    expected = "Type Mismatch In Expression: FunctionCall(MemberAccess(Identifier(x), greet), [BooleanLiteral(True)])"
+    expected = "Type Mismatch In Expression: FunctionCall(Identifier(greet), [BooleanLiteral(True)])"
     assert Checker(source).check_from_source() == expected
 
 
@@ -2549,7 +2543,7 @@ func compute(x: int, y: float) -> int {
     return x;
 }
 func main() -> void {
-    compute(true, "string");
+    let a = compute(true, "string");
 }
 """
     expected = "Type Mismatch In Expression: FunctionCall(Identifier(compute), [BooleanLiteral(True), StringLiteral('string')])"
@@ -2563,8 +2557,131 @@ func compare(a: int, b: int) -> bool {
     return a == b;
 }
 func main() -> void {
-    compare("one");
+    let a = compare("one");
 }
 """
     expected = "Type Mismatch In Expression: FunctionCall(Identifier(compare), [StringLiteral('one')])"
+    assert Checker(source).check_from_source() == expected
+
+def test_181():
+    """Assign array of different size"""
+    source = '''
+func main() -> void {
+    let a: [int; 3] = [1, 2, 3];
+    let b: [int; 5] = [1, 2, 3, 4, 5];
+    a = b;
+}
+'''
+    expected = 'Type Mismatch In Statement: Assignment(IdLValue(a), Identifier(b))'
+    assert Checker(source).check_from_source() == expected
+
+
+def test_182():
+    """Assign float array to int array"""
+    source = '''
+func main() -> void {
+    let a: [int; 3] = [1, 2, 3];
+    let b: [float; 3] = [1.0, 2.0, 3.0];
+    a = b;
+}
+'''
+    expected = 'Type Mismatch In Statement: Assignment(IdLValue(a), Identifier(b))'
+    assert Checker(source).check_from_source() == expected
+
+
+def test_183():
+    """Literal with incorrect type in array"""
+    source = '''
+func main() -> void {
+    let arr: [int; 3] = [1, 2.5, 3];
+}
+'''
+    expected = "Type Mismatch In Statement: ArrayLiteral([IntegerLiteral(1), FloatLiteral(2.5), IntegerLiteral(3)])"
+    assert Checker(source).check_from_source() == expected
+
+
+def test_184():
+    """Array indexing with non-integer"""
+    source = '''
+func main() -> void {
+    let a: [int; 3] = [1, 2, 3];
+    let x = a["0"];
+}
+'''
+    expected = "Type Mismatch In Expression: ArrayAccess(Identifier(a), StringLiteral('0'))"
+    assert Checker(source).check_from_source() == expected
+
+
+def test_185():
+    """Assign multi-dimensional array with incompatible size"""
+    source = '''
+func main() -> void {
+    let m1: [[int; 3]; 2] = [[1, 2, 3], [4, 5, 6]];
+    let m2: [[int; 2]; 3] = [[1, 2], [3, 4], [5, 6]];
+    m1 = m2;
+}
+'''
+    expected = "Type Mismatch In Statement: Assignment(IdLValue(m1), Identifier(m2))"
+    assert Checker(source).check_from_source() == expected
+
+
+def test_186():
+    """Assign multi-dimensional array with wrong element type"""
+    source = '''
+func main() -> void {
+    let m1: [[int; 2]; 3] = [[1, 2], [3, 4], [5, 6]];
+    let m2: [[float; 2]; 3] = [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]];
+    m1 = m2;
+}
+'''
+    expected = "Type Mismatch In Statement: Assignment(IdLValue(m1), Identifier(m2))"
+    assert Checker(source).check_from_source() == expected
+
+
+def test_187():
+    """Assign float to element in int array"""
+    source = '''
+func main() -> void {
+    let a: [int; 3] = [1, 2, 3];
+    a[1] = 3.14;
+}
+'''
+    expected = "Type Mismatch In Statement: Assignment(ArrayAccessLValue(Identifier(a), IntegerLiteral(1)), FloatLiteral(3.14))"
+    assert Checker(source).check_from_source() == expected
+
+
+def test_188():
+    """Function call with wrong array size argument"""
+    source = '''
+func f(x: [int; 5]) -> void {}
+
+func main() -> void {
+    let a: [int; 3] = [1, 2, 3];
+    f(a);
+}
+'''
+    expected = "Type Mismatch In Statement: FunctionCall(Identifier(f), [Identifier(a)])"
+    assert Checker(source).check_from_source() == expected
+
+
+def test_189():
+    """Array literal with mixed types"""
+    source = '''
+func main() -> void {
+    let arr: [int; 3] = [1, true, 3];
+}
+'''
+    expected = "Type Mismatch In Statement: ArrayLiteral([IntegerLiteral(1), BooleanLiteral(True), IntegerLiteral(3)])"
+    assert Checker(source).check_from_source() == expected
+
+
+def test_190():
+    """Nested array element assignment with wrong type"""
+    source = '''
+func main() -> void {
+    let m: [[int; 2]; 2] = [[1, 2], [3, 4]];
+    m[0][1] = "text";
+}
+'''
+    expected = "Type Mismatch In Statement: Assignment(ArrayAccessLValue(ArrayAccessLValue(Identifier(m), IntegerLiteral(0)), IntegerLiteral(1)), StringLiteral('text'))"
     assert Checker(source).check_from_source() == expected

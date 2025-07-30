@@ -116,8 +116,15 @@ class StaticChecker(ASTVisitor):
             raise NoEntryPoint()
 
         # Duyệt thân các hàm
+        main_func = next((f for f in ast.func_decls if f.name == "main"), None)
+        if main_func:
+            self.visit_func_decl(main_func, env)
+
+        # Sau khi main đã được kiểm tra, duyệt các hàm còn lại
         for func in ast.func_decls:
-            self.visit_func_decl(func, env)
+            if func.name != "main":
+                self.visit_func_decl(func, env)
+
 
     def visit_func_decl(self, ast: FuncDecl, env):
         print(">>> ENTERING FUNC. ENV =", [list(s.keys()) for s in env])
@@ -232,9 +239,12 @@ class StaticChecker(ASTVisitor):
             raise Undeclared(IdentifierMarker(), ast.name)
         return info[0] # Trả về kiểu của lvalue
 
-    def visit_function_call(self, ast: FunctionCall, env):
+    def visit_function_call(self, ast: FunctionCall, env, is_stmt=False):
         if not isinstance(ast.function, Identifier):
-            raise TypeMismatchInExpression(ast)
+            if is_stmt:
+                raise TypeMismatchInStatement(ast)
+            else:
+                raise TypeMismatchInExpression(ast)
         
         # Tìm kiếm hàm bằng lookup_any
         func_info = self.lookup_any(ast.function.name, env)
@@ -252,17 +262,20 @@ class StaticChecker(ASTVisitor):
         param_types = func_type_repr[1]
 
         if len(ast.args) != len(param_types):
-            raise TypeMismatchInExpression(ast)
+            raise TypeMismatchInStatement(ast) if is_stmt else TypeMismatchInExpression(ast)
 
         for i in range(len(ast.args)):
             arg_type = self.visit_expression(ast.args[i], env)
-            self.check_type_compatibility(param_types[i], arg_type, ast) # Kiểm tra từng tham số
+            self.check_type_compatibility(param_types[i], arg_type, ast, is_stmt) # Kiểm tra từng tham số
 
         return return_type
 
-
     def visit_expr_stmt(self, ast: ExprStmt, env):
-        self.visit_expression(ast.expr, env)
+        # Nếu là gọi hàm, cần kiểm tra đặc biệt để raise lỗi đúng ngữ cảnh
+        if isinstance(ast.expr, FunctionCall):
+            self.visit_function_call(ast.expr, env, is_stmt=True)
+        else:
+            self.visit_expression(ast.expr, env)
 
     def visit_if_stmt(self, ast: IfStmt, env):
         # Kiểm tra điều kiện chính (if)
@@ -435,16 +448,25 @@ class StaticChecker(ASTVisitor):
         raise TypeMismatchInExpression(ast)
 
     def visit_array_access(self, ast: ArrayAccess, env):
-        arr = self.visit_expression(ast.array, env)
+        # 👉 Nếu là lvalue thì gọi lại chính hàm xử lý lvalue
+        if isinstance(ast.array, ArrayAccessLValue):
+            arr = self.visit_array_access_lvalue(ast.array, env)
+        elif isinstance(ast.array, ArrayAccess):
+            arr = self.visit_array_access(ast.array, env)
+        elif isinstance(ast.array, Identifier):
+            arr = self.visit_identifier(ast.array, env)
+        else:
+            arr = self.visit_expression(ast.array, env)
+
         idx = self.visit_expression(ast.index, env)
-        
-        # Kiểm tra nếu arr hoặc idx là biểu diễn kiểu hàm (tuple)
+
         if (isinstance(arr, tuple) and len(arr) == 2) or \
-           (isinstance(idx, tuple) and len(idx) == 2):
-           raise TypeMismatchInExpression(ast)
+        (isinstance(idx, tuple) and len(idx) == 2):
+            raise TypeMismatchInExpression(ast)
 
         if not isinstance(arr, ArrayType) or not isinstance(idx, IntType):
             raise TypeMismatchInExpression(ast)
+
         return arr.element_type
 
     def visit_array_access_lvalue(self, ast: ArrayAccessLValue, env):
