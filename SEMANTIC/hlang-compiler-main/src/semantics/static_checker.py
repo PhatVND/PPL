@@ -142,15 +142,12 @@ class StaticChecker(ASTVisitor):
         self.current_function = None
 
     def visit_block_stmt(self, ast: BlockStmt, env):
-        if not env or not isinstance(env[0], dict):
-            new_scope = {}
-            new_env = [new_scope] + env  # chỉ tạo scope khi chưa có
-        else: 
-            new_env = env
+        # ✅ Luôn tạo scope mới cho mỗi BlockStmt
+        new_scope = {}
+        new_env = [new_scope] + env
 
-        print(">>> BLOCK SCOPE LAYERS =", [list(s.keys()) for s in env])
+        print(">>> BLOCK SCOPE LAYERS =", [list(s.keys()) for s in new_env])
         for stmt in ast.statements:
-            # print("DEBUG BLOCK: ", stmt) # DEBUG
             if isinstance(stmt, VarDecl):
                 self.visit_var_decl(stmt, new_env)
             elif isinstance(stmt, ConstDecl):
@@ -172,8 +169,6 @@ class StaticChecker(ASTVisitor):
             elif isinstance(stmt, ExprStmt):
                 self.visit_expr_stmt(stmt, new_env)
             elif isinstance(stmt, BlockStmt):
-                # print(f"DEBUG: Encountered nested BlockStmt. Calling visit_block_stmt recursively with: {stmt}") # DEBUG
-                # print(f"DEBUG: Type of nested BlockStmt: {type(stmt)}") # DEBUG
                 self.visit_block_stmt(stmt, new_env)
             else:
                 raise Exception(f"Unknown statement type: {type(stmt)}")
