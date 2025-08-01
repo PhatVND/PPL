@@ -402,6 +402,49 @@ class StaticChecker(ASTVisitor):
                 raise TypeMismatchInStatement(ast) # Hàm không void phải trả về giá trị
 
     def visit_binary_op(self, ast: BinaryOp, env):
+        op = ast.operator
+
+        # Xử lý riêng pipeline operator '>>'
+        if op == '>>':
+            left_type = self.visit_expression(ast.left, env)
+            # Nếu bên phải là Identifier (tên hàm)
+            if isinstance(ast.right, Identifier):
+                func_info = self.lookup_any(ast.right.name, env)
+                if not func_info or func_info[1] != 'Function':
+                    raise TypeMismatchInExpression(ast.right)
+                func_type = func_info[0]  # Đây là tuple (return_type, param_types)
+                if not (isinstance(func_type, tuple) and len(func_type) == 2 and isinstance(func_type[1], list)):
+                    raise TypeMismatchInExpression(ast.right)
+                return_type, param_types = func_type
+                if len(param_types) != 1:
+                    raise TypeMismatchInExpression(ast.right)
+                if not self.are_types_compatible(param_types[0], left_type):
+                    raise TypeMismatchInExpression(ast)
+                return return_type
+            # Nếu bên phải là FunctionCall
+            elif isinstance(ast.right, FunctionCall):
+                if not isinstance(ast.right.function, Identifier):
+                    raise TypeMismatchInExpression(ast.right)
+                func_info = self.lookup_any(ast.right.function.name, env)
+                if not func_info or func_info[1] != 'Function':
+                    raise TypeMismatchInExpression(ast.right)
+                func_type = func_info[0]
+                if not (isinstance(func_type, tuple) and len(func_type) == 2 and isinstance(func_type[1], list)):
+                    raise TypeMismatchInExpression(ast.right)
+                return_type, param_types = func_type
+                args = ast.right.args
+                if len(param_types) != len(args) + 1:
+                    raise TypeMismatchInExpression(ast.right)
+                if not self.are_types_compatible(param_types[0], left_type):
+                    raise TypeMismatchInExpression(ast)
+                for arg_expr, param_type in zip(args, param_types[1:]):
+                    arg_type = self.visit_expression(arg_expr, env)
+                    if not self.are_types_compatible(param_type, arg_type):
+                        raise TypeMismatchInExpression(arg_expr)
+                return return_type
+            else:
+                raise TypeMismatchInExpression(ast.right)
+        
         left = self.visit_expression(ast.left, env)
         right = self.visit_expression(ast.right, env)
         op = ast.operator
@@ -464,8 +507,13 @@ class StaticChecker(ASTVisitor):
         (isinstance(idx, tuple) and len(idx) == 2):
             raise TypeMismatchInExpression(ast)
 
-        if not isinstance(arr, ArrayType) or not isinstance(idx, IntType):
-            raise TypeMismatchInExpression(ast)
+        # Kiểm tra riêng biệt để chỉ rõ lỗi ở biểu thức cụ thể
+        if not isinstance(arr, ArrayType):
+            raise TypeMismatchInExpression(ast.array)
+
+        if not isinstance(idx, IntType):
+            raise TypeMismatchInExpression(ast.index)
+
 
         return arr.element_type
 

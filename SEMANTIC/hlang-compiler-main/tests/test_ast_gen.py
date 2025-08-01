@@ -3,7 +3,21 @@ from utils import ASTGenerator
 
 def test_001():
     """Test basic constant declaration AST generation"""
-    source = "const x: int = 42;"
+    source = """
+    func firstEven(arr: [int; 5]) -> int {
+        for (x in arr) {
+            if (x % 2 == 0) {
+                return x;
+            }
+        }
+        return -1;
+    }
+
+    func main() -> void {
+        let a = [1, 3, 5, 8, 9];
+        let r = firstEven(a);
+    }
+    """
     expected = "Program(consts=[ConstDecl(x, int, IntegerLiteral(42))])"
     # Just check that it doesn't return an error
     assert str(ASTGenerator(source).generate()) == expected
