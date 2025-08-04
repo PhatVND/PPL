@@ -3110,7 +3110,7 @@ def test_228():
     }
     """
     # Tương tự
-    assert Checker(source).check_from_source() == "Type Mismatch In Statement: ArrayLiteral([IntegerLiteral(1), FloatLiteral(2.5), IntegerLiteral(3)])"
+    assert Checker(source).check_from_source() == "Type Mismatch In Expression: ArrayLiteral([IntegerLiteral(1), FloatLiteral(2.5), IntegerLiteral(3)])"
 
 def test_229():
     """Test array_literal size"""

@@ -245,7 +245,7 @@ expression4:
 	| expression4 MOD expression5
 	| expression5;
 expression5:
-	| NOT expression5
+	NOT expression5
 	| SUB expression5
 	| ADD expression5
 	| expression6;

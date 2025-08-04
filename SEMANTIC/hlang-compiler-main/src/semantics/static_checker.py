@@ -26,14 +26,13 @@ class StaticChecker(ASTVisitor):
     def __init__(self, ast: Program):
         self.ast = ast
         self.global_envi = {
-            # Lưu các hàm built-in với tuple (kiểu trả về, [kiểu tham số]) để đồng nhất với cách biểu diễn hàm của visit_identifier
-            "print": (FuncDecl("print", [Param("val", StringType())], VoidType(), []), 'Function', None),
-            "input": (FuncDecl("input", [], StringType(), []), 'Function', None),
-            "int": (FuncDecl("int", [Param("s", StringType())], IntType(), []), 'Function', None),
-            "float": (FuncDecl("float", [Param  ("s", StringType())], FloatType(), []), 'Function', None),
-            "str": (FuncDecl("str", [Param("x", IntType())], StringType(), []), 'Function', None),  # and others
-            "len": (FuncDecl("len", [Param("arr", ArrayType(IntType(), 0))], IntType(), []), 'Function', None),
-        }
+                "print":  ((VoidType(),  [StringType()]), 'Function', None),
+                "input":  ((StringType(), []),         'Function', None),
+                "int":    ((IntType(),    [StringType()]),   'Function', None),
+                "float":  ((FloatType(),  [StringType()]),   'Function', None),
+                "str":    ((StringType(), [IntType()]),      'Function', None),
+                "len":    ((IntType(),    [ArrayType(IntType(), 0)]), 'Function', None),
+            }
         self.current_function: Optional[FuncDecl] = None
         self.loop_level = 0
 
@@ -53,12 +52,20 @@ class StaticChecker(ASTVisitor):
         return None
 
     def check_redeclared(self, name: str, kind: str, scope: Dict[str, Tuple], env: List[Dict[str, Tuple]] = None):
+        # Debug log
         print(f">>> CHECKING DECL: {name} AS {kind} IN SCOPE:", list(scope.keys()))
 
+        # 1) Cấm redeclare nếu đã có trong cùng scope
         if name in scope:
             raise Redeclared(kind, name)
 
-        # ✅ CHỈ cấm nếu: khai báo biến/hằng/param trùng tên với HÀM BUILT-IN
+        # 2) Với Constant: không cho shadowing constant của function-body scope chỉ ở nested block sâu (len(env) > 2)
+        if kind == 'Constant' and env and len(env) > 2:
+            parent = env[1]  # function-body scope
+            if name in parent and parent[name][1] == 'Constant':
+                raise Redeclared(kind, name)
+
+        # 2) Cấm dùng tên built-in cho mọi kind phù hợp
         if env and kind in ['Variable', 'Constant', 'Parameter']:
             builtin_funcs = {"print", "input", "int", "float", "str", "len"}
             if name in builtin_funcs:
@@ -69,7 +76,7 @@ class StaticChecker(ASTVisitor):
         Kiểm tra xem kiểu 'actual' có tương thích với kiểu 'expected' hay không.
         Nếu không, đưa ra TypeMismatchInStatement hoặc TypeMismatchInExpression.
         """
-        # print(f"🔍 check_type_compatibility: expected={expected}, actual={actual}, is_stmt={is_stmt}, ast={ast}") # DEBUG
+        print(f"[DEBUG] COMPARE: expected={expected} ({type(expected)}), actual={actual} ({type(actual)}), is_stmt={is_stmt}, ast={ast}")
         if not self.are_types_compatible(expected, actual):
             if is_stmt:
                 raise TypeMismatchInStatement(ast)
@@ -77,15 +84,18 @@ class StaticChecker(ASTVisitor):
                 raise TypeMismatchInExpression(ast)
             
     def visit_program(self, ast: Program, env):
-        global_scope = self.global_envi.copy()  # ✅ tạo bản sao tách biệt
+        # 1. Thiết lập global scope
+        global_scope = self.global_envi.copy()
         env = [global_scope]
         print(">>> GLOBAL ENV INIT:", list(self.global_envi.keys()))
+
+        # 2. Lấy danh sách tất cả các khai báo (giữ thứ tự source nếu có)
         decls = getattr(ast, "_original_order", ast.const_decls + ast.func_decls)
 
+        # 3. Đăng ký ConstDecl và FuncDecl vào global
         for decl in decls:
             if isinstance(decl, ConstDecl):
                 self.check_redeclared(decl.name, 'Constant', global_scope, env)
-                # Khi khởi tạo hằng số, visit_expression sẽ trả về kiểu
                 typ = self.visit_expression(decl.value, env) if decl.value else None
                 if decl.type_annotation:
                     if typ:
@@ -93,38 +103,61 @@ class StaticChecker(ASTVisitor):
                     typ = decl.type_annotation
                 if not typ:
                     raise TypeCannotBeInferred(decl)
-                global_scope[decl.name] = (typ, 'Constant', None) # Lưu kiểu của hằng số
+                global_scope[decl.name] = (typ, 'Constant', None)
+
             elif isinstance(decl, FuncDecl):
                 self.check_redeclared(decl.name, 'Function', global_scope, env)
-                # Lưu kiểu của hàm dưới dạng tuple (return_type, [param_types])
                 param_types = [p.param_type for p in decl.params]
                 global_scope[decl.name] = ((decl.return_type, param_types), 'Function', None)
 
-        # Kiểm tra hàm main
-        main = self.lookup_any("main", env) # Dùng lookup_any vì không cần biết 'kind' là gì để tìm main
-        if not main:
+        # 4. Kiểm tra có entry point main hợp lệ
+        main_entry = self.lookup_any("main", env)
+        if not main_entry:
             raise NoEntryPoint()
-        
-        main_info = main[0] # Lấy thông tin được lưu (có thể là kiểu hàm tuple)
-        
-        # main_info phải là một tuple biểu diễn kiểu hàm (VoidType, [])
-        if not (isinstance(main_info, tuple) and 
-                len(main_info) == 2 and 
-                isinstance(main_info[0], VoidType) and 
-                isinstance(main_info[1], list) and 
-                len(main_info[1]) == 0):
+        main_info = main_entry[0]
+        if not (
+            isinstance(main_info, tuple)
+            and isinstance(main_info[0], VoidType)
+            and isinstance(main_info[1], list)
+            and len(main_info[1]) == 0
+        ):
             raise NoEntryPoint()
 
-        # Duyệt thân các hàm
-        main_func = next((f for f in ast.func_decls if f.name == "main"), None)
-        if main_func:
-            self.visit_func_decl(main_func, env)
-
-        # Sau khi main đã được kiểm tra, duyệt các hàm còn lại
+        # 5. Duyệt tất cả các FuncDecl theo đúng thứ tự xuất hiện trong source
         for func in ast.func_decls:
-            if func.name != "main":
-                self.visit_func_decl(func, env)
+            self.visit_func_decl(func, env)
+    
+    def all_paths_return(self, stmt) -> bool:
+        """
+        Trả về True nếu mọi đường đi trong stmt đều kết thúc bằng ReturnStmt.
+        Xử lý đệ quy cho BlockStmt, IfStmt (cần cả then và else), còn lại
+        bất kỳ thứ gì khác (ReturnStmt) thì False nếu không phải Return.
+        """
+        # Nếu đây là 1 block, thì phải có ít nhất 1 statement và cuối cùng là return,
+        # hoặc có nhiều đường đi nhưng đều return.
+        if isinstance(stmt, BlockStmt):
+            for s in stmt.statements:
+                if self.all_paths_return(s):
+                    return True
+            return False
 
+        # IfStmt: cần cả hai nhánh then và else đều trả về
+        if isinstance(stmt, IfStmt):
+            # 1) then branch phải return
+            then_ok = self.all_paths_return(stmt.then_stmt)
+            # 2) mọi elif branch cũng phải return
+            elif_ok = all(self.all_paths_return(branch) 
+                          for _, branch in stmt.elif_branches)
+            # 3) else branch phải return
+            else_ok = stmt.else_stmt and self.all_paths_return(stmt.else_stmt)
+            return then_ok and elif_ok and else_ok
+        
+        # Nếu gặp ReturnStmt thì đường đi này chắc chắn return
+        if isinstance(stmt, ReturnStmt):
+            return True
+
+        # Với các stmt khác (var decl, expr, loop, ...) không đảm bảo return
+        return False
 
     def visit_func_decl(self, ast: FuncDecl, env):
         print(">>> ENTERING FUNC. ENV =", [list(s.keys()) for s in env])
@@ -138,13 +171,28 @@ class StaticChecker(ASTVisitor):
 
         new_env = [param_scope] + env
 
-        self.visit_block_stmt(ast.body, new_env)
+
+        self.visit_block_stmt(ast.body, new_env, is_func_body=True)
+
+        if not isinstance(ast.return_type, VoidType):
+            if not self.all_paths_return(ast.body):
+                # “unpack” BlockStmt thành list để __str__(FuncDecl) có thể iterate
+                if isinstance(ast.body, BlockStmt):
+                    ast.body = ast.body.statements
+                raise TypeMismatchInStatement(ast)
+
         self.current_function = None
 
-    def visit_block_stmt(self, ast: BlockStmt, env):
-        # ✅ Luôn tạo scope mới cho mỗi BlockStmt
-        new_scope = {}
-        new_env = [new_scope] + env
+    
+
+
+    def visit_block_stmt(self, ast: BlockStmt, env, is_func_body=False):
+        # Nếu là block ngoài cùng của function, không tạo scope mới (param_scope đã ở đầu)
+        if is_func_body:
+            new_env = env
+        else:
+            new_scope = {}
+            new_env = [new_scope] + env
 
         print(">>> BLOCK SCOPE LAYERS =", [list(s.keys()) for s in new_env])
         for stmt in ast.statements:
@@ -177,13 +225,45 @@ class StaticChecker(ASTVisitor):
         cur = env[0]
         self.check_redeclared(ast.name, 'Variable', cur, env)
 
-        rhs_type = self.visit_expression(ast.value, env) if ast.value else None
-        typ = ast.type_annotation
-
-        if typ:
-            if rhs_type:
-                self.check_type_compatibility(typ, rhs_type, ast, is_stmt=True)
+        if isinstance(ast.value, ArrayLiteral):
+            elems = ast.value.elements
+            if isinstance(ast.type_annotation, ArrayType):
+                # 1) Kiểm tra độ dài
+                if len(elems) != ast.type_annotation.size:
+                    raise TypeMismatchInStatement(ast)
+                # 2) Kiểm tra kiểu từng phần tử
+                expected_ty = ast.type_annotation.element_type
+                for e in elems:
+                    actual_ty = self.visit_expression(e, env)
+                    if not self.are_types_compatible(expected_ty, actual_ty):
+                        # dùng ast.value để lỗi in ra ArrayLiteral(...)
+                        raise TypeMismatchInStatement(ast.value)
+                rhs_type = ast.type_annotation
+            else:
+                # logic cũ cho literal rỗng / infer
+                if len(elems) == 0:
+                    raise TypeCannotBeInferred(ast)
+                rhs_type = self.visit_expression(ast.value, env)
         else:
+            rhs_type = self.visit_expression(ast.value, env) if ast.value else None
+
+        if rhs_type is not None and isinstance(rhs_type, VoidType):
+            raise TypeMismatchInStatement(ast)
+
+        # Bắt lỗi pipeline trả về void trong var declaration
+        # if isinstance(ast.value, BinaryOp) and ast.value.operator == '>>' \
+        #    and isinstance(rhs_type, VoidType):
+        #     raise TypeMismatchInStatement(ast)
+
+        typ = ast.type_annotation
+        # Nếu có ghi chú kiểu, và RHS trả về void thì lỗi
+        if typ:
+            if rhs_type is not None and isinstance(rhs_type, VoidType):
+                raise TypeMismatchInStatement(ast)
+            # rồi tiếp tục check tương thích bình thường
+            self.check_type_compatibility(typ, rhs_type, ast, is_stmt=True)
+        else:
+            # infer: phải có RHS để infer
             if not rhs_type:
                 raise TypeCannotBeInferred(ast)
             typ = rhs_type
@@ -215,17 +295,6 @@ class StaticChecker(ASTVisitor):
 
         decl_node_or_type = info[0] # Lấy thông tin đầu tiên trong tuple
         decl_kind = info[1]
-
-        # # Nếu là hàm, trả về biểu diễn kiểu hàm (tuple)
-        # if decl_kind == 'Function':
-        #     # `decl_node_or_type` ở đây là tuple (return_type, param_types) đã lưu từ visit_program
-        #     return decl_node_or_type 
-        # # Nếu là biến, hằng, tham số, trả về kiểu của chúng
-        # elif decl_kind in ['Variable', 'Constant', 'Parameter']:
-        #     return decl_node_or_type # Kiểu đã được lưu trực tiếp
-        # else:
-        #     # Trường hợp khác nếu có, trả về chính nó
-        #     return decl_node_or_type
         return decl_node_or_type
 
     def visit_id_lvalue(self, ast: IdLValue, env):
@@ -268,9 +337,14 @@ class StaticChecker(ASTVisitor):
     def visit_expr_stmt(self, ast: ExprStmt, env):
         # Nếu là gọi hàm, cần kiểm tra đặc biệt để raise lỗi đúng ngữ cảnh
         if isinstance(ast.expr, FunctionCall):
-            self.visit_function_call(ast.expr, env, is_stmt=True)
+            # Lấy kiểu trả về của hàm
+            return_type = self.visit_function_call(ast.expr, env, is_stmt=True)
+            # Nếu không phải void thì lỗi
+            if not isinstance(return_type, VoidType):
+                raise TypeMismatchInStatement(ast)
+            return
         else:
-            self.visit_expression(ast.expr, env)
+            self.visit_expression(ast.expr, env, is_stmt=True)
 
     def visit_if_stmt(self, ast: IfStmt, env):
         # Kiểm tra điều kiện chính (if)
@@ -327,8 +401,6 @@ class StaticChecker(ASTVisitor):
             self.visit_expr_stmt(stmt, env)
         elif isinstance(stmt, BlockStmt):
             self.visit_block_stmt(stmt, env)
-        else:
-            raise Exception(f"Unknown statement type in visit_statement: {type(stmt)}")
 
     def visit_while_stmt(self, ast: WhileStmt, env):
         # Kiểm tra điều kiện là biểu thức boolean
@@ -349,27 +421,31 @@ class StaticChecker(ASTVisitor):
         self.loop_level -= 1
 
     def visit_for_stmt(self, ast: ForStmt, env):
+        # Kiểm tra iterable phải là mảng
         iter_type = self.visit_expression(ast.iterable, env)
         if not isinstance(iter_type, ArrayType):
             raise TypeMismatchInStatement(ast)
 
+        # Tăng loop level
         self.loop_level += 1
 
-        # Tạo loop scope chứa biến lặp
+        # --- TẠO SCOPE RIÊNG CHO BIẾN VÒNG LẶP ---
         loop_scope = {}
-        # check_redeclared nên kiểm tra trong scope hiện tại (env[0]), không phải toàn bộ env
-        self.check_redeclared(ast.variable, 'Variable', env[0], env) 
+        # Chỉ cấm redeclare trong chính loop_scope này (cho phép shadowing lên param_scope)
+        self.check_redeclared(ast.variable, 'Variable', loop_scope, env)
+        # Gán kiểu cho biến vòng lặp
         loop_scope[ast.variable] = (iter_type.element_type, 'Variable', None)
-
-        # Đưa vào env trước khi xử lý body
+        # Đặt loop_scope lên đầu env
         new_env = [loop_scope] + env
 
-        # Duyệt body
+        # Duyệt thân for (giờ đây thân for nằm dưới scope loop_scope)
         if isinstance(ast.body, BlockStmt):
-            self.visit_block_stmt(ast.body, new_env)
+            # MỞ SCOPE MỚI CHO BLOCK THÂN FOR (default is_func_body=False)
+            self.visit_block_stmt(ast.body, new_env, is_func_body=True)
         else:
             self.visit_statement(ast.body, new_env)
 
+        # Giảm loop level
         self.loop_level -= 1
 
     def visit_break_stmt(self, ast: BreakStmt, env):
@@ -381,6 +457,7 @@ class StaticChecker(ASTVisitor):
             raise MustInLoop(ast)
 
     def visit_return_stmt(self, ast: ReturnStmt, env):
+        print(f"[DEBUG][RETURN] ast.value={ast.value} ({type(ast.value)}) in function {self.current_function.name}")
         if not self.current_function: # Không có hàm hiện tại (có thể là lỗi cú pháp hoặc logic)
             # Tùy thuộc vào yêu cầu, có thể throw lỗi hoặc bỏ qua
             return
@@ -406,40 +483,42 @@ class StaticChecker(ASTVisitor):
             if isinstance(ast.right, Identifier):
                 func_info = self.lookup_any(ast.right.name, env)
                 if not func_info or func_info[1] != 'Function':
-                    raise TypeMismatchInExpression(ast.right)
+                    raise TypeMismatchInExpression(ast)
                 func_type = func_info[0]  # Đây là tuple (return_type, param_types)
                 if not (isinstance(func_type, tuple) and len(func_type) == 2 and isinstance(func_type[1], list)):
-                    raise TypeMismatchInExpression(ast.right)
+                    raise TypeMismatchInExpression(ast)
                 return_type, param_types = func_type
                 if len(param_types) != 1:
-                    raise TypeMismatchInExpression(ast.right)
+                    raise TypeMismatchInExpression(ast)
                 if not self.are_types_compatible(param_types[0], left_type):
                     raise TypeMismatchInExpression(ast)
                 return return_type
             # Nếu bên phải là FunctionCall
             elif isinstance(ast.right, FunctionCall):
                 if not isinstance(ast.right.function, Identifier):
-                    raise TypeMismatchInExpression(ast.right)
+                    raise TypeMismatchInExpression(ast)
                 func_info = self.lookup_any(ast.right.function.name, env)
                 if not func_info or func_info[1] != 'Function':
-                    raise TypeMismatchInExpression(ast.right)
+                    raise TypeMismatchInExpression(ast)
                 func_type = func_info[0]
                 if not (isinstance(func_type, tuple) and len(func_type) == 2 and isinstance(func_type[1], list)):
-                    raise TypeMismatchInExpression(ast.right)
+                    raise TypeMismatchInExpression(ast)
                 return_type, param_types = func_type
                 args = ast.right.args
                 if len(param_types) != len(args) + 1:
-                    raise TypeMismatchInExpression(ast.right)
+                    raise TypeMismatchInExpression(ast)
                 if not self.are_types_compatible(param_types[0], left_type):
                     raise TypeMismatchInExpression(ast)
                 for arg_expr, param_type in zip(args, param_types[1:]):
                     arg_type = self.visit_expression(arg_expr, env)
                     if not self.are_types_compatible(param_type, arg_type):
-                        raise TypeMismatchInExpression(arg_expr)
+                        raise TypeMismatchInExpression(ast)
                 return return_type
             else:
-                raise TypeMismatchInExpression(ast.right)
-        
+                # INVALID target (không phải hàm) -> lỗi trên toàn BinaryOp
+                raise TypeMismatchInExpression(ast)
+
+        # Các toán tử khác
         left = self.visit_expression(ast.left, env)
         right = self.visit_expression(ast.right, env)
         op = ast.operator
@@ -447,7 +526,7 @@ class StaticChecker(ASTVisitor):
         # Kiểm tra nếu bất kỳ toán hạng nào là biểu diễn kiểu hàm (tuple)
         if (isinstance(left, tuple) and len(left) == 2) or \
            (isinstance(right, tuple) and len(right) == 2):
-           raise TypeMismatchInExpression(ast) # Không thể thực hiện phép toán với hàm
+            raise TypeMismatchInExpression(ast)  # Không thể thực hiện phép toán với hàm
 
         if op in ['+', '-', '*', '/']:
             if isinstance(left, (IntType, FloatType)) and isinstance(right, (IntType, FloatType)):
@@ -504,7 +583,7 @@ class StaticChecker(ASTVisitor):
 
         # Kiểm tra riêng biệt để chỉ rõ lỗi ở biểu thức cụ thể
         if not isinstance(arr, ArrayType):
-            raise TypeMismatchInExpression(ast.array)
+            raise TypeMismatchInExpression(ast)
 
         if not isinstance(idx, IntType):
             raise TypeMismatchInExpression(ast.index)
@@ -541,7 +620,7 @@ class StaticChecker(ASTVisitor):
             if not self.are_types_compatible(first_elem_type, current_elem_type):
                 # TypeMismatchInStatement ở đây có thể không hoàn toàn chính xác, 
                 # nhưng nó là lỗi gần nhất cho trường hợp mảng không đồng nhất
-                raise TypeMismatchInStatement(ast) 
+                raise TypeMismatchInExpression(ast) 
         return ArrayType(first_elem_type, len(ast.elements))
     
     def visit_int_type(self, ast, env): return ast
@@ -552,20 +631,6 @@ class StaticChecker(ASTVisitor):
     def visit_array_type(self, ast, env): return ast
 
     def are_types_compatible(self, expected, actual):
-        # return type(expected) is type(actual)
-        # if isinstance(expected, FloatType) and isinstance(actual, IntType):
-        #     return True  # ✅ chỉ ở cấp độ scalar
-        # if type(expected) is not type(actual):
-        #     return False
-
-        # if isinstance(expected, ArrayType) and isinstance(actual, ArrayType):
-        #     # ❗ Không dùng đệ quy cho int→float nữa
-        #     return (
-        #         expected.size == actual.size
-        #         and type(expected.element_type) is type(actual.element_type)
-        #     )
-
-        # return type(expected) is type(actual)
         if type(expected) is not type(actual):
             return False
 
@@ -578,8 +643,6 @@ class StaticChecker(ASTVisitor):
         return True
 
         
-
-            
     def visit_const_decl(self, ast: ConstDecl, env):
         cur = env[0]
         self.check_redeclared(ast.name, 'Constant', cur, env)
@@ -603,13 +666,13 @@ class StaticChecker(ASTVisitor):
     def visit_param(self, ast: Param, env):
         return ast.param_type
     
-    def visit_expression(self, expr, env):
+    def visit_expression(self, expr, env, is_stmt=False):
         if isinstance(expr, BinaryOp):
             return self.visit_binary_op(expr, env)
         elif isinstance(expr, UnaryOp):
             return self.visit_unary_op(expr, env)
         elif isinstance(expr, FunctionCall):
-            return self.visit_function_call(expr, env)
+            return self.visit_function_call(expr, env, is_stmt)
         elif isinstance(expr, ArrayAccess):
             return self.visit_array_access(expr, env)
         elif isinstance(expr, Identifier):

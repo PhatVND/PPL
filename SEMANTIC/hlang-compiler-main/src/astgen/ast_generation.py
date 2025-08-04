@@ -287,8 +287,8 @@ class ASTGeneration(HLangVisitor):
             return None
 
         # Nếu có expression nhưng là node rỗng (ví dụ: return;)
-        if expr_ctx.getText().strip() == "":
-            return None
+        # if expr_ctx.getText().strip() == "":
+        #     return None
 
         return self.visit(expr_ctx)
 
