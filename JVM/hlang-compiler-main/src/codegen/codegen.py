@@ -24,18 +24,24 @@ class CodeGenerator(ASTVisitor):
     def visit_program(self, node: "Program", o: Any = None):
         self.emit.print_out(self.emit.emit_prolog(self.class_name, "java/lang/Object"))
 
-        global_env = reduce(
-            lambda acc, cur: self.visit(cur, acc),
-            node.func_decls,
-            SubBody(None, IO_SYMBOL_LIST),
-        )
+        # Tạo global_env với IO_SYMBOL_LIST và các hàm user-defined
+        global_env = IO_SYMBOL_LIST[:]
+        for decl in node.func_decls:
+            if isinstance(decl, FuncDecl):
+                param_types = [p.param_type for p in decl.params]
+                return_type = decl.return_type
+                ftype = FunctionType(param_types, return_type)
+                global_env.append(Symbol(decl.name, ftype, CName(self.class_name)))
+
+        # Generate code cho các hàm
+        for decl in node.func_decls:
+            self.visit(decl, SubBody(None, global_env))
 
         self.generate_method(
             FuncDecl("<init>", [], VoidType(), []),
             SubBody(Frame("<init>", VoidType()), []),
         )
         self.emit.emit_epilog()
-
     def generate_method(self, node: "FuncDecl", o: SubBody = None):
         frame = o.frame
 
@@ -251,10 +257,10 @@ class CodeGenerator(ASTVisitor):
 
     def visit_return_stmt(self, node: "ReturnStmt", o: SubBody = None):
         frame = o.frame
-        if node.expr is None:
+        if node.value is None:
             self.emit.print_out(self.emit.emit_return(VoidType(), frame))
             return o
-        code, typ = self.visit(node.expr, Access(frame, o.sym))
+        code, typ = self.visit(node.value, Access(frame, o.sym))
         self.emit.print_out(code)
         self.emit.print_out(self.emit.emit_return(typ, frame))
         return o
@@ -391,6 +397,9 @@ class CodeGenerator(ASTVisitor):
             ac, _ = self.visit(arg, Access(o.frame, o.sym))
             arg_codes.append(ac)
 
+        # Lấy return type từ function_symbol
+        return_type = function_symbol.type.return_type
+
         return (
             "".join(arg_codes)
             + self.emit.emit_invoke_static(
@@ -398,8 +407,9 @@ class CodeGenerator(ASTVisitor):
                 function_symbol.type,
                 o.frame
             ),
-            VoidType(),
+            return_type,   # trả đúng kiểu trả về
         )
+
 
 
     def visit_array_access(self, node: "ArrayAccess", o: Any = None):
