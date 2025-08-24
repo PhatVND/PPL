@@ -231,7 +231,8 @@ def test_008_for_loop_sum():
         ],
     )
 
-    expected = "1020"  # Kết quả in chuỗi "" + 10 + "" + 20
+    expected = """10
+20"""  # Kết quả in chuỗi "" + 10 + "" + 20
     result = CodeGenerator().generate_and_run(ast)
 
     assert result == expected
@@ -504,8 +505,8 @@ def test_016_nested_if():
     assert result == expected
 
 
-def test_017_fibonacci_iterative():
-    """Iterative Fibonacci: fib(10) = 55 (starting fib(0)=0, fib(1)=1)"""
+def test_017_fibonacci_array_iterative():
+    """Iterative Fibonacci with array: fib(10) = 55"""
     ast = Program(
         [],
         [
@@ -514,29 +515,71 @@ def test_017_fibonacci_iterative():
                 [],
                 VoidType(),
                 [
+                    # int n = 10;
                     VarDecl("n", IntType(), IntegerLiteral(10)),
-                    VarDecl("a", IntType(), IntegerLiteral(0)),
-                    VarDecl("b", IntType(), IntegerLiteral(1)),
-                    VarDecl("i", IntType(), IntegerLiteral(0)),
+
+                    # int[] fib = [0, 1, 0, 0, 0, 0, 0, 0, 0, 0];
+                    VarDecl(
+                        "fib",
+                        ArrayType(IntType(), 10),
+                        ArrayLiteral([
+                            IntegerLiteral(0),
+                            IntegerLiteral(1),
+                            IntegerLiteral(0),
+                            IntegerLiteral(0),
+                            IntegerLiteral(0),
+                            IntegerLiteral(0),
+                            IntegerLiteral(0),
+                            IntegerLiteral(0),
+                            IntegerLiteral(0),
+                            IntegerLiteral(0),
+                        ])
+                    ),
+
+                    # for i = 2 to 9: fib[i] = fib[i-1] + fib[i-2];
+                    VarDecl("i", IntType(), IntegerLiteral(2)),
                     WhileStmt(
                         BinaryOp(Identifier("i"), "<", Identifier("n")),
                         BlockStmt([
-                            VarDecl("tmp", IntType(), BinaryOp(Identifier("a"), "+", Identifier("b"))),
-                            Assignment(IdLValue("a"), Identifier("b")),
-                            Assignment(IdLValue("b"), Identifier("tmp")),
-                            Assignment(IdLValue("i"), BinaryOp(Identifier("i"), "+", IntegerLiteral(1))),
+                            Assignment(
+                                ArrayCell(Identifier("fib"), Identifier("i")),
+                                BinaryOp(
+                                    ArrayCell(Identifier("fib"), BinaryOp(Identifier("i"), "-", IntegerLiteral(1))),
+                                    "+",
+                                    ArrayCell(Identifier("fib"), BinaryOp(Identifier("i"), "-", IntegerLiteral(2))),
+                                )
+                            ),
+                            Assignment(
+                                IdLValue("i"),
+                                BinaryOp(Identifier("i"), "+", IntegerLiteral(1))
+                            )
                         ])
                     ),
-                    ExprStmt(FunctionCall(Identifier("print"), [Identifier("a")]))
-                ],
+
+                    # print("" + fib[n - 1]);
+                    ExprStmt(
+                        FunctionCall(
+                            Identifier("print"),
+                            [
+                                BinaryOp(
+                                    StringLiteral(""),
+                                    "+",
+                                    ArrayCell(
+                                        Identifier("fib"),
+                                        BinaryOp(Identifier("n"), "-", IntegerLiteral(1))
+                                    )
+                                )
+                            ]
+                        )
+                    )
+                ]
             )
-        ],
+        ]
     )
-    # fib(10) = 55
-    expected = str(55)
+
+    expected = "55"  # Fibonacci(10) = 55
     result = CodeGenerator().generate_and_run(ast)
     assert result == expected
-
 
 def test_018_sum_mixed_numbers_for_loop():
     """For loop sums mixed positive/negative integers"""
@@ -730,4 +773,70 @@ def test_022_void_function_call():
     )
     expected = 'Hi'  # vì StringLiteral("Hi") thêm dấu ngoặc kép khi in
     result = CodeGenerator().generate_and_run(ast)
+    assert result == expected
+def test_009_for_loop_sum_total():
+    """For loop sum total and print"""
+    ast = Program(
+        [],
+        [
+            FuncDecl(
+                "main",
+                [],
+                VoidType(),
+                [
+                    # int total = 0;
+                    VarDecl("total", IntType(), IntegerLiteral(0)),
+
+                    # int[] arr = [1, 2, 3, 4, 5];
+                    VarDecl(
+                        "arr",
+                        ArrayType(IntType(), 5),
+                        ArrayLiteral([
+                            IntegerLiteral(1),
+                            IntegerLiteral(2),
+                            IntegerLiteral(3),
+                            IntegerLiteral(4),
+                            IntegerLiteral(5),
+                        ])
+                    ),
+
+                    # for (x in arr) {
+                    #     total = total + x;
+                    # }
+                    ForStmt(
+                        "x",
+                        Identifier("arr"),
+                        BlockStmt([
+                            Assignment(
+                                IdLValue("total"),
+                                BinaryOp(
+                                    Identifier("total"),
+                                    "+",
+                                    Identifier("x")
+                                )
+                            )
+                        ])
+                    ),
+
+                    # print("" + total);
+                    ExprStmt(
+                        FunctionCall(
+                            Identifier("print"),
+                            [
+                                BinaryOp(
+                                    StringLiteral(""),
+                                    "+",
+                                    Identifier("total")
+                                )
+                            ]
+                        )
+                    )
+                ]
+            )
+        ]
+    )
+
+    expected = "15"
+    result = CodeGenerator().generate_and_run(ast)
+
     assert result == expected

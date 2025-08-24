@@ -405,14 +405,55 @@ class CodeGenerator(ASTVisitor):
     # Expressions
 
     def visit_binary_op(self, node: "BinaryOp", o: Access = None):
-        # print("DEBUG binop left type:", type(node.left))
-        # print("DEBUG binop right type:", type(node.right))
         frame = o.frame
         lc, lt = self.visit(node.left, Access(frame, o.sym))
         rc, rt = self.visit(node.right, Access(frame, o.sym))
-        code = lc + rc
+        op = node.operator
+
+        # String concatenation
+        if op == "+" and (isinstance(lt, StringType) or isinstance(rt, StringType)):
+            frame.push()
+            code = ""
+
+            code += self.emit.emitNEW("java/lang/StringBuilder")
+            code += self.emit.emitDUP()
+
+            if isinstance(lt, StringType):
+                code += lc
+                code += self.emit.emit_invoke_special(
+                    frame,
+                    "java/lang/StringBuilder/<init>",
+                    FunctionType([StringType()], VoidType())
+                )
+            else:
+                code += self.emit.emit_invoke_special(
+                    frame,
+                    "java/lang/StringBuilder/<init>",
+                    FunctionType([], VoidType())
+                )
+                code += lc
+                code += self.emit.emit_invoke_virtual(
+                    "java/lang/StringBuilder/append",
+                    FunctionType([lt], ClassType("java/lang/StringBuilder")),
+                    frame
+                )
+
+            code += rc
+            code += self.emit.emit_invoke_virtual(
+                "java/lang/StringBuilder/append",
+                FunctionType([rt], ClassType("java/lang/StringBuilder")),
+                frame
+            )
+
+            code += self.emit.emit_invoke_virtual(
+                "java/lang/StringBuilder/toString",
+                FunctionType([], StringType()),
+                frame
+            )
+            return code, StringType()
 
         # int–float promotion khi cần
+        code = lc + rc
         if isinstance(lt, FloatType) and isinstance(rt, IntType):
             code = lc + self.emit.emit_i2f(frame) + rc
             rt = FloatType()
@@ -420,16 +461,13 @@ class CodeGenerator(ASTVisitor):
             code = lc + rc + self.emit.emit_i2f(frame)
             lt = FloatType()
 
-        tt = lt  # kiểu toán hạng thống nhất
-        op = node.operator
+        tt = lt  # unified operand type
 
         if op in ["+", "-"]:
             code += self.emit.emit_addop(op, tt, frame)
             return code, tt
         if op in ["*", "/"]:
-            # nếu chia int/int cần i2f (chuẩn MiniGo trong file tham chiếu cũng đẩy về float khi “/”)
             if op == "/" and isinstance(tt, IntType):
-                # chuyển cả hai toán hạng sang float trước khi op
                 lc2, _ = self.visit(node.left, Access(frame, o.sym))
                 rc2, _ = self.visit(node.right, Access(frame, o.sym))
                 code = lc2 + self.emit.emit_i2f(frame) + rc2 + self.emit.emit_i2f(frame)
@@ -450,7 +488,6 @@ class CodeGenerator(ASTVisitor):
             code += self.emit.emit_orop(frame)
             return code, BoolType()
 
-        # Chuỗi “+” / so sánh chuỗi — cần jasmin helpers riêng; tạm không hỗ trợ ở đây
         raise NotImplementedError(f"Operator {op} not implemented for type {type(tt).__name__}")
 
     def visit_unary_op(self, node: "UnaryOp", o: Access = None):

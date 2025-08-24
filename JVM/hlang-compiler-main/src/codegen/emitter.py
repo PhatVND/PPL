@@ -422,27 +422,27 @@ class Emitter:
         return self.jvm.emitINVOKESTATIC(lexeme, self.get_jvm_type(in_))
 
     def emit_invoke_special(self, frame, lexeme: Optional[str] = None, in_=None) -> str:
-        """
-        Generate code to invoke a special method.
+            """
+            Generate code to invoke a special method.
 
-        Args:
-            frame: Frame object for stack management
-            lexeme: The qualified name of the method (i.e., class-name/method-name)
-            in_: The type descriptor of the method
+            Args:
+                frame: Frame object for stack management
+                lexeme: The qualified name of the method (i.e., class-name/method-name)
+                in_: The type descriptor of the method
 
-        Returns:
-            Generated JVM instruction string
-        """
-        if not lexeme is None and not in_ is None:
-            typ = in_
-            list(map(lambda x: frame.pop(), typ.partype))
-            frame.pop()
-            if not type(typ.rettype) is VoidType:
-                frame.push()
-            return self.jvm.emitINVOKESPECIAL(lexeme, self.get_jvm_type(in_))
-        elif lexeme is None and in_ is None:
-            frame.pop()
-            return self.jvm.emitINVOKESPECIAL()
+            Returns:
+                Generated JVM instruction string
+            """
+            if not lexeme is None and not in_ is None:
+                typ = in_
+                list(map(lambda x: frame.pop(), typ.param_types))
+                frame.pop()
+                if not type(typ.return_type) is VoidType:
+                    frame.push()
+                return self.jvm.emitINVOKESPECIAL(lexeme, self.get_jvm_type(in_))
+            elif lexeme is None and in_ is None:
+                frame.pop()
+                return self.jvm.emitINVOKESPECIAL()
 
     def emit_invoke_virtual(self, lexeme: str, in_, frame) -> str:
         """
@@ -1040,3 +1040,13 @@ class Emitter:
         frame.pop()  # v2
         frame.pop()  # v1
         return f"if_icmpge Label{label}\n"
+    def emitNEW(self, class_name: str) -> str:
+        """
+        Sinh lệnh NEW để tạo đối tượng mới (ví dụ StringBuilder)
+        """
+        return f"new {class_name}\n"
+    def emitDUP(self) -> str:
+        """
+        Sinh lệnh DUP để nhân đôi đỉnh stack (thường dùng sau new để giữ tham chiếu)
+        """
+        return "dup\n"
