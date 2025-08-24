@@ -976,3 +976,67 @@ class Emitter:
             return self.jvm.emitISUB() if isinstance(typ, IntType) else self.jvm.emitFSUB()
         else:
             raise Exception(f"Unsupported addop: {op}")
+    def emit_array_length(self, frame):
+        return "arraylength\n"
+    def emit_if_cmp(self, op: str, label: str, frame):
+        """
+        Sinh lệnh so sánh giữa 2 số nguyên trên stack và nhảy tới nhãn nếu điều kiện đúng.
+        Dùng trong so sánh: v1 <op> v2 → jump label
+        """
+        mapping = {
+            "==": "if_icmpeq",
+            "!=": "if_icmpne",
+            "<" : "if_icmplt",
+            "<=": "if_icmple",
+            ">" : "if_icmpgt",
+            ">=": "if_icmpge",
+        }
+        if op not in mapping:
+            raise IllegalOperandException(f"Unsupported comparison op: {op}")
+        return f"{mapping[op]} {label}\n"
+    def emit_array_load(self, elem_type, frame):
+        """
+        Trả về mã Jasmin để load phần tử từ mảng tại chỉ số đã có sẵn trên stack:
+        stack: ..., arr, index → ..., value
+        """
+        from ..utils.nodes import IntType, FloatType, BoolType, StringType
+
+        if isinstance(elem_type, IntType):
+            return "iaload\n"
+        if isinstance(elem_type, FloatType):
+            return "faload\n"
+        if isinstance(elem_type, BoolType):
+            return "baload\n"
+        if isinstance(elem_type, StringType):
+            return "aaload\n"
+        raise IllegalOperandException(f"Unsupported array load for type: {type(elem_type).__name__}")
+    def emit_array_store(self, elem_type, frame):
+        """
+        Trả về mã Jasmin để lưu giá trị vào mảng:
+        Stack: ..., array, index, value → ...
+        """
+        if isinstance(elem_type, IntType):
+            return "iastore\n"
+        elif isinstance(elem_type, FloatType):
+            return "fastore\n"
+        elif isinstance(elem_type, BoolType):
+            return "bastore\n"
+        elif isinstance(elem_type, StringType):
+            return "aastore\n"
+        raise IllegalOperandException(f"Unsupported array store for type: {type(elem_type).__name__}")
+    def emit_arraylength(self, frame):
+        """
+        Trả về lệnh để lấy độ dài mảng (JVM: arraylength).
+        Stack: ..., array → ..., length
+        """
+        frame.pop()   # array bị lấy ra để thực hiện arraylength
+        frame.push()  # kết quả là 1 số nguyên
+        return "arraylength\n"
+    def emit_ificmpge(self, label: int, frame) -> str:
+        """
+        Emit IFICMPGE instruction (so sánh >=).
+        Stack: ..., v1, v2 → nếu v1 >= v2 thì nhảy.
+        """
+        frame.pop()  # v2
+        frame.pop()  # v1
+        return f"if_icmpge Label{label}\n"

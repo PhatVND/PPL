@@ -5,28 +5,22 @@
 .method public static main([Ljava/lang/String;)V
 .var 0 is args [Ljava/lang/String; from Label0 to Label1
 Label0:
-	getstatic java/lang/System/out Ljava/io/PrintStream;
-	iconst_3
-	iconst_4
-	invokestatic HLang/add(II)I
-	invokevirtual java/io/PrintStream/println(I)V
+	invokestatic HLang/hello()V
 	return
 Label1:
-.limit stack 3
+.limit stack 0
 .limit locals 1
 .end method
 
-.method public static add(II)I
-.var 0 is a I from Label0 to Label1
-.var 1 is b I from Label0 to Label1
+.method public static hello()V
 Label0:
-	iload_0
-	iload_1
-	iadd
-	ireturn
+	getstatic java/lang/System/out Ljava/io/PrintStream;
+	ldc "Hi"
+	invokevirtual java/io/PrintStream/println(Ljava/lang/String;)V
+	return
 Label1:
 .limit stack 2
-.limit locals 2
+.limit locals 0
 .end method
 
 .method public <init>()V

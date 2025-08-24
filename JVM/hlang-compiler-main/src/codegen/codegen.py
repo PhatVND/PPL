@@ -42,6 +42,7 @@ class CodeGenerator(ASTVisitor):
             SubBody(Frame("<init>", VoidType()), []),
         )
         self.emit.emit_epilog()
+
     def generate_method(self, node: "FuncDecl", o: SubBody = None):
         frame = o.frame
 
@@ -184,28 +185,44 @@ class CodeGenerator(ASTVisitor):
         lc, lt = self.visit(node.lvalue, Access(o.frame, o.sym))
         self.emit.print_out(lc)
         return o
+    def ends_with_return(self, stmt):
+        if isinstance(stmt, BlockStmt):
+            return len(stmt.statements) > 0 and isinstance(stmt.statements[-1], ReturnStmt)
+        return isinstance(stmt, ReturnStmt)
     def visit_if_stmt(self, node: "IfStmt", o: SubBody = None):
         frame = o.frame
-        else_label = frame.get_new_label()
+        has_else = node.else_stmt is not None
+        else_label = frame.get_new_label() if has_else else None
         end_label = frame.get_new_label()
 
-        print("DEBUG cond type:", type(node.condition))
+        # Emit condition
         cond_code, _ = self.visit(node.condition, Access(frame, o.sym))
         self.emit.print_out(cond_code)
+        self.emit.print_out(
+            self.emit.emit_if_false(else_label if has_else else end_label, frame)
+        )
 
-        self.emit.print_out(self.emit.emit_if_false(else_label, frame))
-
-        print("DEBUG then_stmt type:", type(node.then_stmt))
+        # Emit then branch
         self.visit(node.then_stmt, o)
+        then_has_return = self.ends_with_return(node.then_stmt)
 
-        self.emit.print_out(self.emit.emit_goto(end_label, frame))
+        # If no return at end of then, jump to end
+        if has_else and not then_has_return:
+            self.emit.print_out(self.emit.emit_goto(end_label, frame))
 
-        self.emit.print_out(self.emit.emit_label(else_label, frame))
-        if node.else_stmt is not None:
-            print("DEBUG else_stmt type:", type(node.else_stmt))
+        # Else branch
+        if has_else:
+            self.emit.print_out(self.emit.emit_label(else_label, frame))
             self.visit(node.else_stmt, o)
+            else_has_return = self.ends_with_return(node.else_stmt)
 
-        self.emit.print_out(self.emit.emit_label(end_label, frame))
+            # Only emit end label if one of the branches does not return
+            if not then_has_return or not else_has_return:
+                self.emit.print_out(self.emit.emit_label(end_label, frame))
+        else:
+            # No else: always need end_label
+            self.emit.print_out(self.emit.emit_label(end_label, frame))
+
         return o
     def visit_while_stmt(self, node: "WhileStmt", o: SubBody = None):
         frame = o.frame
@@ -227,33 +244,108 @@ class CodeGenerator(ASTVisitor):
         return o
 
     def visit_for_stmt(self, node: "ForStmt", o: SubBody = None):
-        # Giả định ForStmt(init, cond, update, body) — nếu AST khác, mình sẽ chỉnh khi bạn gửi định nghĩa AST
-        frame = o.frame
-        frame.enter_loop()
-        break_label = frame.get_break_label()
-        continue_label = frame.get_continue_label()
-        cond_label = frame.get_new_label()
+            # For-in loop implementation
+            o.frame.enter_scope(False)
+            
+            from_label = o.frame.get_start_label()
+            to_label = o.frame.get_end_label()
+            
+            # Get array and create iterator variable
+            array_code, array_type = self.visit(node.iterable, Access(o.frame, o.sym))
+            
+            # Create index variable
+            idx_var = o.frame.get_new_index()
+            self.emit.print_out(self.emit.emit_var(
+                idx_var, "__idx", IntType(), 
+                from_label, to_label
+            ))
+            
+            # ForStmt.variable is a string, not an object with .name
+            variable_name = node.variable if isinstance(node.variable, str) else node.variable.name
+            
+            # Create loop variable
+            loop_var = o.frame.get_new_index()
+            self.emit.print_out(self.emit.emit_var(
+                loop_var, variable_name, array_type.element_type,
+                from_label, to_label
+            ))
+            
+            # Store array reference
+            array_var = o.frame.get_new_index()
+            self.emit.print_out(self.emit.emit_var(
+                array_var, "__array", array_type,
+                from_label, to_label
+            ))
+            
+            # Initialize index to 0
+            self.emit.print_out(self.emit.emit_push_iconst(0, o.frame))
+            self.emit.print_out(self.emit.emit_write_var("__idx", IntType(), idx_var, o.frame))
+            
+            # Store array reference
+            self.emit.print_out(array_code)
+            self.emit.print_out(self.emit.emit_write_var("__array", array_type, array_var, o.frame))
+            
+            # Emit the scope start label
+            self.emit.print_out(self.emit.emit_label(from_label, o.frame))
+            
+            label_start = o.frame.get_new_label()
+            label_end = o.frame.get_new_label()
+            label_continue = o.frame.get_new_label()
+            
+            o.frame.enter_loop()
+            
+            # Set continue and break labels
+            o.frame.con_label[-1] = label_continue
+            o.frame.brk_label[-1] = label_end
+            
+            # Start label
+            self.emit.print_out(self.emit.emit_label(label_start, o.frame))
+            
+            # Check if index < array length
+            self.emit.print_out(self.emit.emit_read_var("__idx", IntType(), idx_var, o.frame))
+            self.emit.print_out(self.emit.emit_read_var("__array", array_type, array_var, o.frame))
+            self.emit.print_out(self.emit.emit_arraylength(o.frame))
+            self.emit.print_out(self.emit.emit_ificmpge(label_end, o.frame))
+            
+            # Load current element into loop variable
+            self.emit.print_out(self.emit.emit_read_var("__array", array_type, array_var, o.frame))
+            self.emit.print_out(self.emit.emit_read_var("__idx", IntType(), idx_var, o.frame))
+            self.emit.print_out(self.emit.emit_aload(array_type.element_type, o.frame))
+            self.emit.print_out(self.emit.emit_write_var(variable_name, array_type.element_type, loop_var, o.frame))
+            
+            # Update environment with loop variable
+            new_env = SubBody(
+                o.frame,
+                [Symbol(variable_name, array_type.element_type, Index(loop_var))] + o.sym
+            )
+            
+            # Generate body
+            new_env = self.visit(node.body, new_env)
+            
+            # Continue label (for continue statements)
+            self.emit.print_out(self.emit.emit_label(label_continue, o.frame))
+            
+            # Increment index
+            self.emit.print_out(self.emit.emit_read_var("__idx", IntType(), idx_var, o.frame))
+            self.emit.print_out(self.emit.emit_push_iconst(1, o.frame))
+            self.emit.print_out(self.emit.emit_add_op("+", IntType(), o.frame))
+            self.emit.print_out(self.emit.emit_write_var("__idx", IntType(), idx_var, o.frame))
+            
+            # Jump back to start
+            self.emit.print_out(self.emit.emit_goto(label_start, o.frame))
+            
+            # End label
+            self.emit.print_out(self.emit.emit_label(label_end, o.frame))
+            
+            o.frame.exit_loop()
+            
+            # Emit the scope end label
+            self.emit.print_out(self.emit.emit_label(to_label, o.frame))
+            
+            o.frame.exit_scope()
+            
+            return o
 
-        # init
-        self.visit(node.init, o)
-
-        # cond
-        self.emit.print_out(self.emit.emit_label(cond_label, frame))
-        ccode, ctype = self.visit(node.cond, Access(frame, o.sym))
-        self.emit.print_out(ccode)
-        self.emit.print_out(self.emit.emit_if_false(break_label, frame))
-
-        # body
-        self.visit(node.body, o)
-
-        # update
-        self.emit.print_out(self.emit.emit_label(continue_label, frame))
-        self.visit(node.update, o)
-        self.emit.print_out(self.emit.emit_goto(cond_label, frame))
-
-        self.emit.print_out(self.emit.emit_label(break_label, frame))
-        frame.exit_loop()
-        return o
 
     def visit_return_stmt(self, node: "ReturnStmt", o: SubBody = None):
         frame = o.frame
@@ -275,17 +367,26 @@ class CodeGenerator(ASTVisitor):
     def visit_expr_stmt(self, node: "ExprStmt", o: SubBody = None):
         code, typ = self.visit(node.expr, Access(o.frame, o.sym))
         self.emit.print_out(code)
+        return o
 
     def visit_block_stmt(self, node: "BlockStmt", o: SubBody = None):
         # Tạo scope mới (local vars lấy chỉ số mới; label giữ nguyên)
         frame = o.frame
         frame.enter_scope(False)
-        new_o = SubBody(frame, o.sym[:])  # shadow sym list
+
+        # Dùng bản sao env để shadow
+        new_o = SubBody(frame, o.sym[:])
+
+        # QUAN TRỌNG: cập nhật new_o sau mỗi visit
         for stmt in node.statements:
-            self.visit(stmt, new_o)
+            ret = self.visit(stmt, new_o)
+            # hầu hết các visit(...) trả về SubBody; một số có thể trả None
+            if isinstance(ret, SubBody):
+                new_o = ret
+
         frame.exit_scope()
+        # Kết thúc block: env ngoài không thay đổi
         return o
-    # Left-values
 
     def visit_id_lvalue(self, node: "IdLValue", o: Access = None):
         sym = next(filter(lambda x: x.name == node.name, o.sym), None)
@@ -304,8 +405,8 @@ class CodeGenerator(ASTVisitor):
     # Expressions
 
     def visit_binary_op(self, node: "BinaryOp", o: Access = None):
-        print("DEBUG binop left type:", type(node.left))
-        print("DEBUG binop right type:", type(node.right))
+        # print("DEBUG binop left type:", type(node.left))
+        # print("DEBUG binop right type:", type(node.right))
         frame = o.frame
         lc, lt = self.visit(node.left, Access(frame, o.sym))
         rc, rt = self.visit(node.right, Access(frame, o.sym))
@@ -412,15 +513,63 @@ class CodeGenerator(ASTVisitor):
 
 
 
-    def visit_array_access(self, node: "ArrayAccess", o: Any = None):
-        pass
+    def visit_array_access(self, node: "ArrayAccess", o: Access = None):
+        frame = o.frame
+        sym = o.sym
 
-    def visit_array_literal(self, node: "ArrayLiteral", o: Any = None):
-        pass
+        # Sinh mã cho array_expr và index_expr
+        array_code, array_type = self.visit(node.array, Access(frame, sym))
+        index_code, index_type = self.visit(node.index, Access(frame, sym))
+
+        assert isinstance(array_type, ArrayType), "Only array access supported on array type"
+        assert isinstance(index_type, IntType), "Array index must be integer"
+
+        element_type = array_type.element_type
+
+        code = array_code + index_code
+        code += self.emit.emit_array_load(element_type, frame)
+
+        return code, element_type
+    def visit_array_literal(self, node: "ArrayLiteral", o: Access = None):
+        frame = o.frame
+        elems = node.elements
+        n = len(elems)
+
+        if n == 0:
+            elem_type = IntType()
+        else:
+            _, e0_type = self.visit(elems[0], Access(frame, o.sym))
+            elem_type = e0_type
+
+        arr_type = ArrayType(elem_type, n)
+
+        def _elem_token(t):
+            if isinstance(t, IntType):    return "int"
+            if isinstance(t, FloatType):  return "float"
+            if isinstance(t, BoolType):   return "boolean"
+            if isinstance(t, StringType): return "java/lang/String"
+            raise IllegalOperandException(f"Unsupported array element type: {type(t).__name__}")
+
+        code = ""
+        code += self.emit.emit_push_iconst(n, frame)
+        code += self.emit.emit_new_array(_elem_token(elem_type))  # stack: [array]
+
+        for i, el in enumerate(elems):
+            code += self.emit.emit_dup(frame)  # dup mảng để giữ trên stack
+            code += self.emit.emit_push_iconst(i, frame)  # chỉ số
+            el_code, el_type = self.visit(el, Access(frame, o.sym))
+            if isinstance(elem_type, FloatType) and isinstance(el_type, IntType):
+                el_code += self.emit.emit_i2f(frame)
+            code += el_code
+            code += self.emit.emit_array_store(elem_type, frame)
+
+        return code, arr_type
 
     def visit_identifier(self, node: "Identifier", o: Access = None):
         sym = next(filter(lambda x: x.name == node.name, o.sym), None)
         assert sym, f"Undeclared identifier {node.name}"
+        # print("[DEBUG] Identifier:", node.name)
+        # print("[DEBUG] Sym list:", [s.name for s in o.sym])
         if isinstance(sym.value, Index):
             code = self.emit.emit_read_var(sym.name, sym.type, sym.value.value, o.frame)
         else:
