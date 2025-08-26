@@ -155,6 +155,10 @@ class Emitter:
         """
         if type(typ) is IntType:
             return self.emit_push_iconst(in_, frame)
+        elif type(typ) is BoolType:
+            # map True/False → "true"/"false" → iconst_1/iconst_0
+            lex = "true" if (in_ is True or in_ == "true" or in_ == 1) else "false"
+            return self.emit_push_iconst(lex, frame)
         elif type(typ) is StringType:
             frame.push()
             return self.jvm.emitLDC(in_)
@@ -252,6 +256,8 @@ class Emitter:
             return self.jvm.emitILOAD(index)
         elif type(in_type) is FloatType:
             return self.jvm.emitFLOAD(index)
+        elif type(in_type) is BoolType:                
+            return self.jvm.emitILOAD(index)
         elif (
             type(in_type) is ArrayType
             or type(in_type) is ClassType
@@ -300,6 +306,8 @@ class Emitter:
             return self.jvm.emitISTORE(index)
         elif type(in_type) is FloatType:
             return self.jvm.emitFSTORE(index)
+        elif type(in_type) is BoolType:                 
+            return self.jvm.emitISTORE(index)
         elif (
             type(in_type) is ArrayType
             or type(in_type) is ClassType
@@ -842,15 +850,27 @@ class Emitter:
 
     def emit_new_array(self, lexeme: str) -> str:
         """
-        Emit NEWARRAY instruction.
+        Emit NEWARRAY/ANEWARRAY instruction depending on element type.
 
         Args:
-            lexeme: Array type string
+            lexeme: array element type. For primitives expect one of:
+                    {"int","float","double","long","short","byte","char","boolean"}
+                    For object types use internal name, e.g. "java/lang/String".
 
         Returns:
-            Generated JVM instruction string
+            Generated JVM instruction string.
         """
-        return self.jvm.emitNEWARRAY(lexeme)
+        primitive_types = {
+            "int", "float", "double", "long", "short", "byte", "char", "boolean"
+        }
+        if lexeme in primitive_types:
+            # e.g., "newarray int"
+            return self.jvm.emitNEWARRAY(lexeme)
+        else:
+            # e.g., "anewarray java/lang/String"
+            # If your JVM helper doesn't have emitANEWARRAY yet, add it:
+            # def emitANEWARRAY(self, lexeme): return f"anewarray {lexeme}\n"
+            return self.jvm.emitANEWARRAY(lexeme)
 
     def emit_label(self, label: int, frame) -> str:
         """
@@ -893,7 +913,7 @@ class Emitter:
         result.append(self.jvm.emitSOURCE(name + ".java"))
         result.append(self.jvm.emitCLASS("public " + name))
         result.append(
-            self.jvm.emitSUPER("java/land/Object" if parent == "" else parent)
+            self.jvm.emitSUPER("java/lang/Object" if parent == "" else parent)
         )
         return "".join(result)
 
@@ -962,6 +982,7 @@ class Emitter:
             return self.jvm.emitINVOKEVIRTUAL("java/io/PrintStream/println", "(Ljava/lang/String;)V")
         else:
             raise IllegalOperandException("Unsupported type for println: " + str(in_type))
+        
     def emit_mulop(self, op, typ, frame):
         if op == '*':
             return self.jvm.emitIMUL() if isinstance(typ, IntType) else self.jvm.emitFMUL()

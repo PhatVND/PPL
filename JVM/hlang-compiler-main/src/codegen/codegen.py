@@ -42,6 +42,8 @@ class CodeGenerator(ASTVisitor):
             SubBody(Frame("<init>", VoidType()), []),
         )
         self.emit.emit_epilog()
+        
+        print("[DEBUG] Jasmin code:\n", "".join(self.emit.buff))
 
     def generate_method(self, node: "FuncDecl", o: SubBody = None):
         frame = o.frame
@@ -156,16 +158,22 @@ class CodeGenerator(ASTVisitor):
 
     def visit_var_decl(self, node: "VarDecl", o: SubBody = None):
         idx = o.frame.get_new_index()
+    
+        # ✅ Đặt tên biến duy nhất cho Jasmin (VD: x_1, x_2,...)
+        jasmin_name = f"{node.name}_{idx}"
+
+        # Emit .var jasmin
         self.emit.print_out(
             self.emit.emit_var(
                 idx,
-                node.name,
+                jasmin_name,  # dùng tên duy nhất
                 node.type_annotation,
                 o.frame.get_start_label(),
                 o.frame.get_end_label(),
             )
         )
 
+        # Nếu có gán giá trị
         if node.value is not None:
             self.visit(
                 Assignment(IdLValue(node.name), node.value),
@@ -174,6 +182,7 @@ class CodeGenerator(ASTVisitor):
                     [Symbol(node.name, node.type_annotation, Index(idx))] + o.sym,
                 ),
             )
+
         return SubBody(
             o.frame,
             [Symbol(node.name, node.type_annotation, Index(idx))] + o.sym,
@@ -186,44 +195,87 @@ class CodeGenerator(ASTVisitor):
         self.emit.print_out(lc)
         return o
     def ends_with_return(self, stmt):
+        if isinstance(stmt, ReturnStmt):
+            return True
         if isinstance(stmt, BlockStmt):
-            return len(stmt.statements) > 0 and isinstance(stmt.statements[-1], ReturnStmt)
-        return isinstance(stmt, ReturnStmt)
+            if not stmt.statements:
+                return False
+            return self.ends_with_return(stmt.statements[-1])
+        if isinstance(stmt, IfStmt):
+            if not stmt.then_stmt or not stmt.else_stmt:
+                return False
+            return self.ends_with_return(stmt.then_stmt) and self.ends_with_return(stmt.else_stmt)
+        return False
+    
     def visit_if_stmt(self, node: "IfStmt", o: SubBody = None):
+        """
+        Phát sinh mã cho IfStmt có thể gồm: if (+ nhiều elif) + else.
+        Quy tắc an toàn:
+        - Luôn tạo và PHÁT end_label để mọi GOTO/IF_FALSE có đích hợp lệ.
+        - Mỗi nhánh (then / từng elif / else) nếu KHÔNG kết thúc bằng return,
+            thì nhảy (goto) tới end_label để tránh rơi tự do vào nhãn của nhánh khác.
+        - Nhãn 'next_label' (điểm rẽ sang nhánh kế tiếp) luôn được PHÁT ngay sau khi nhánh hiện tại xử lý xong.
+        """
         frame = o.frame
-        has_else = node.else_stmt is not None
-        else_label = frame.get_new_label() if has_else else None
         end_label = frame.get_new_label()
 
-        # Emit condition
+        # ===== IF (điều kiện đầu) =====
+        has_following = bool(node.elif_branches) or (node.else_stmt is not None)
+        next_label = frame.get_new_label() if has_following else end_label
+
+        # điều kiện if
         cond_code, _ = self.visit(node.condition, Access(frame, o.sym))
         self.emit.print_out(cond_code)
-        self.emit.print_out(
-            self.emit.emit_if_false(else_label if has_else else end_label, frame)
-        )
+        # sai -> sang nhánh kế tiếp (elif đầu hoặc else hoặc end nếu không có gì sau)
+        self.emit.print_out(self.emit.emit_if_false(next_label, frame))
 
-        # Emit then branch
+        # then-block
         self.visit(node.then_stmt, o)
-        then_has_return = self.ends_with_return(node.then_stmt)
-
-        # If no return at end of then, jump to end
-        if has_else and not then_has_return:
+        then_returns = self.ends_with_return(node.then_stmt)
+        if not then_returns:
+            # nếu then không return thì nhảy tới end
             self.emit.print_out(self.emit.emit_goto(end_label, frame))
 
-        # Else branch
-        if has_else:
-            self.emit.print_out(self.emit.emit_label(else_label, frame))
+        # rẽ sang nhánh tiếp theo (nếu có)
+        if has_following:
+            self.emit.print_out(self.emit.emit_label(next_label, frame))
+
+        # ===== ELIF CHUỖI =====
+        for i, (elif_cond, elif_block) in enumerate(node.elif_branches):
+            is_last_elif = (i == len(node.elif_branches) - 1)
+            has_after_this = (not is_last_elif) or (node.else_stmt is not None)
+            next_label = frame.get_new_label() if has_after_this else end_label
+
+            # điều kiện elif
+            ec_code, _ = self.visit(elif_cond, Access(frame, o.sym))
+            self.emit.print_out(ec_code)
+            # sai -> sang nhánh elif kế tiếp / else / end
+            self.emit.print_out(self.emit.emit_if_false(next_label, frame))
+
+            # block elif
+            self.visit(elif_block, o)
+            elif_returns = self.ends_with_return(elif_block)
+            if not elif_returns:
+                # không return -> nhảy tới end
+                self.emit.print_out(self.emit.emit_goto(end_label, frame))
+
+            # rẽ sang nhánh tiếp theo
+            if has_after_this:
+                self.emit.print_out(self.emit.emit_label(next_label, frame))
+
+        # ===== ELSE (nếu có) =====
+        if node.else_stmt is not None:
             self.visit(node.else_stmt, o)
-            else_has_return = self.ends_with_return(node.else_stmt)
+            else_returns = self.ends_with_return(node.else_stmt)
+            if not else_returns:
+                # không return -> nhảy tới end
+                self.emit.print_out(self.emit.emit_goto(end_label, frame))
 
-            # Only emit end label if one of the branches does not return
-            if not then_has_return or not else_has_return:
-                self.emit.print_out(self.emit.emit_label(end_label, frame))
-        else:
-            # No else: always need end_label
-            self.emit.print_out(self.emit.emit_label(end_label, frame))
-
+        # ===== KẾT: luôn phát end_label =====
+        self.emit.print_out(self.emit.emit_label(end_label, frame))
         return o
+
+
     def visit_while_stmt(self, node: "WhileStmt", o: SubBody = None):
         frame = o.frame
         frame.enter_loop()
@@ -370,9 +422,17 @@ class CodeGenerator(ASTVisitor):
         return o
 
     def visit_block_stmt(self, node: "BlockStmt", o: SubBody = None):
-        # Tạo scope mới (local vars lấy chỉ số mới; label giữ nguyên)
         frame = o.frame
+
+        # Tạo scope mới (local vars lấy chỉ số mới; label giữ nguyên)
         frame.enter_scope(False)
+
+        # Lấy label đầu/cuối để khai báo phạm vi biến
+        from_label = frame.get_start_label()
+        to_label = frame.get_end_label()
+
+        # ✅ Emit nhãn bắt đầu block (LabelX)
+        self.emit.print_out(self.emit.emit_label(from_label, frame))
 
         # Dùng bản sao env để shadow
         new_o = SubBody(frame, o.sym[:])
@@ -380,13 +440,18 @@ class CodeGenerator(ASTVisitor):
         # QUAN TRỌNG: cập nhật new_o sau mỗi visit
         for stmt in node.statements:
             ret = self.visit(stmt, new_o)
-            # hầu hết các visit(...) trả về SubBody; một số có thể trả None
             if isinstance(ret, SubBody):
                 new_o = ret
 
+        # ✅ Emit nhãn kết thúc block (LabelY)
+        self.emit.print_out(self.emit.emit_label(to_label, frame))
+
+        # Thoát khỏi scope (để đóng lại chỉ số biến, break/continue label, ...)
         frame.exit_scope()
+
         # Kết thúc block: env ngoài không thay đổi
         return o
+
 
     def visit_id_lvalue(self, node: "IdLValue", o: Access = None):
         sym = next(filter(lambda x: x.name == node.name, o.sym), None)
@@ -400,95 +465,241 @@ class CodeGenerator(ASTVisitor):
         return code, sym.type
     def visit_array_access_lvalue(self, node: "ArrayAccessLValue", o: Any = None):
         # Sẽ bổ sung sau khi xem jasmincode.py (astore/aload cụ thể)
-        raise NotImplementedError("Array write not implemented yet")
+        """
+        Generate code for assigning to an array element: arr[idx] = <value-on-stack>.
+        Convention in our codegen: visit_assignment() đã đặt RHS lên stack trước,
+        nên ở đây ta phải sắp xếp stack theo thứ tự: array, index, value rồi store.
+        """
+        frame = o.frame
+        sym = o.sym
+
+        # Xác định kiểu phần tử mảng
+        elem_type = None
+        # Trường hợp thường gặp: array là Identifier
+        if isinstance(node.array, Identifier):
+            arr_sym = next(filter(lambda x: x.name == node.array.name, sym), None)
+            assert arr_sym and isinstance(arr_sym.type, ArrayType), "Array lvalue must be an array identifier"
+            elem_type = arr_sym.type.element_type
+        else:
+            # Tổng quát: suy kiểu từ biểu thức truy cập mảng ở vế phải (đã có visit_array_access)
+            # hoặc giả định int nếu không suy được (ít gặp trong test)
+            try:
+                ac_code, ac_type = self.visit(ArrayAccess(node.array, node.index), Access(frame, sym))
+                # Ta không dùng ac_code ở đây vì chỉ cần kiểu
+                elem_type = ac_type if isinstance(ac_type, (IntType, FloatType, BoolType, StringType)) else IntType()
+            except:
+                elem_type = IntType()
+
+        # Giá trị (RHS) đang ở đỉnh stack -> cất tạm vào 1 local để dựng lại thứ tự stack
+        tmp_idx = frame.get_new_index()
+        code = self.emit.emit_write_var("__arr_tmp", elem_type, tmp_idx, frame)
+
+        # Đẩy lại array và index
+        arr_code, _ = self.visit(node.array, Access(frame, sym))
+        idx_code, _ = self.visit(node.index, Access(frame, sym))
+        code += arr_code + idx_code
+
+        # Lấy lại value
+        code += self.emit.emit_read_var("__arr_tmp", elem_type, tmp_idx, frame)
+
+        # Store vào phần tử mảng
+        code += self.emit.emit_array_store(elem_type, frame)
+
+        return code, elem_type
 
     # Expressions
 
     def visit_binary_op(self, node: "BinaryOp", o: Access = None):
         frame = o.frame
-        lc, lt = self.visit(node.left, Access(frame, o.sym))
-        rc, rt = self.visit(node.right, Access(frame, o.sym))
         op = node.operator
 
-        # String concatenation
-        if op == "+" and (isinstance(lt, StringType) or isinstance(rt, StringType)):
-            frame.push()
-            code = ""
+        # ---------- Helpers ----------
+        def is_stringy(t):
+            # Nối chuỗi nếu có String hoặc Bool ở bất kỳ bên nào
+            return isinstance(t, (StringType, BoolType))
 
-            code += self.emit.emitNEW("java/lang/StringBuilder")
-            code += self.emit.emitDUP()
+        def flatten_plus_shallow(expr):
+            # Thu thập các hạng của dãy cộng ở MỨC HIỆN TẠI theo kết hợp trái:
+            # ((A+B)+C)+D  → [A, B, C, D]
+            terms = []
+            cur = expr
+            while isinstance(cur, type(node)) and getattr(cur, "operator", None) == "+":
+                terms.append(cur.right)
+                cur = cur.left
+            terms.append(cur)
+            terms.reverse()
+            return terms
 
-            if isinstance(lt, StringType):
-                code += lc
-                code += self.emit.emit_invoke_special(
-                    frame,
-                    "java/lang/StringBuilder/<init>",
-                    FunctionType([StringType()], VoidType())
-                )
-            else:
-                code += self.emit.emit_invoke_special(
+        def visit_expr(e):
+            return self.visit(e, Access(frame, o.sym))  # (code, type)
+
+        def unify_num_types(lt, rt):
+            # Nếu một bên float → kết quả float (int được i2f)
+            if isinstance(lt, FloatType) or isinstance(rt, FloatType):
+                return FloatType()
+            return IntType()
+
+        # ---------- '+' ----------
+        if op == "+":
+            terms = flatten_plus_shallow(node)
+            visited = [visit_expr(t) for t in terms]  # [(code, type), ...]
+            codes, types = zip(*visited) if visited else ([], [])
+
+            # Có stringy -> nối chuỗi toàn bộ dãy bằng StringBuilder (NHƯNG flatten nông)
+            if any(is_stringy(t) for t in types):
+                parts = []
+                # new StringBuilder()
+                parts.append(self.emit.emitNEW("java/lang/StringBuilder"))
+                frame.push()
+                parts.append(self.emit.emit_dup(frame))
+                parts.append(self.emit.emit_invoke_special(
                     frame,
                     "java/lang/StringBuilder/<init>",
                     FunctionType([], VoidType())
-                )
-                code += lc
-                code += self.emit.emit_invoke_virtual(
-                    "java/lang/StringBuilder/append",
-                    FunctionType([lt], ClassType("java/lang/StringBuilder")),
+                ))
+                # append từng term (mỗi term tự tính xong trước)
+                for c, t in zip(codes, types):
+                    parts.append(c)
+                    parts.append(self.emit.emit_invoke_virtual(
+                        "java/lang/StringBuilder/append",
+                        FunctionType([t], ClassType("java/lang/StringBuilder")),
+                        frame
+                    ))
+                # toString
+                parts.append(self.emit.emit_invoke_virtual(
+                    "java/lang/StringBuilder/toString",
+                    FunctionType([], StringType()),
                     frame
-                )
+                ))
+                return "".join(parts), StringType()
 
-            code += rc
-            code += self.emit.emit_invoke_virtual(
-                "java/lang/StringBuilder/append",
-                FunctionType([rt], ClassType("java/lang/StringBuilder")),
-                frame
-            )
+            # Không có stringy → cộng số học 2 ngôi chuẩn
+            lc, lt = visit_expr(node.left)
+            rc, rt = visit_expr(node.right)
+            res_t = unify_num_types(lt, rt)
+            parts = [lc, rc]
+            if isinstance(res_t, FloatType):
+                if isinstance(lt, IntType):
+                    parts.insert(1, self.emit.emit_i2f(frame))
+                if isinstance(rt, IntType):
+                    parts.append(self.emit.emit_i2f(frame))
+            parts.append(self.emit.emit_add_op("+", res_t, frame))
+            return "".join(parts), res_t
 
-            code += self.emit.emit_invoke_virtual(
-                "java/lang/StringBuilder/toString",
-                FunctionType([], StringType()),
-                frame
-            )
-            return code, StringType()
+        # ---------- '-', '*', '/', '%' ----------
+        if op in ["-", "*", "/", "%"]:
+            lc, lt = self.visit(node.left, Access(frame, o.sym))
+            rc, rt = self.visit(node.right, Access(frame, o.sym))
+            res_t = unify_num_types(lt, rt)
+            parts = [lc, rc]
+            if isinstance(res_t, FloatType):
+                if isinstance(lt, IntType):
+                    parts.insert(1, self.emit.emit_i2f(frame))
+                if isinstance(rt, IntType):
+                    parts.append(self.emit.emit_i2f(frame))
+            if op == "%":
+                if not isinstance(res_t, IntType):
+                    raise Exception("Modulo only supported for integers")
+                parts.append(self.emit.emit_mod(frame))
+                return "".join(parts), IntType()
+            if op == "*":
+                parts.append(self.emit.emit_mul_op("*", res_t, frame))
+            elif op == "/":
+                parts.append(self.emit.emit_mul_op("/", res_t, frame))
+            else:
+                parts.append(self.emit.emit_add_op("-", res_t, frame))
+            return "".join(parts), res_t
 
-        # int–float promotion khi cần
-        code = lc + rc
-        if isinstance(lt, FloatType) and isinstance(rt, IntType):
-            code = lc + self.emit.emit_i2f(frame) + rc
-            rt = FloatType()
-        elif isinstance(lt, IntType) and isinstance(rt, FloatType):
-            code = lc + rc + self.emit.emit_i2f(frame)
-            lt = FloatType()
+        # ---------- Quan hệ: <, <=, >, >= ----------
+        if op in ["<", "<=", ">", ">="]:
+            lc, lt = self.visit(node.left, Access(frame, o.sym))
+            rc, rt = self.visit(node.right, Access(frame, o.sym))
+            res_t = unify_num_types(lt, rt)
+            parts = [lc, rc]
+            if isinstance(res_t, FloatType):
+                if isinstance(lt, IntType):
+                    parts.insert(1, self.emit.emit_i2f(frame))
+                if isinstance(rt, IntType):
+                    parts.append(self.emit.emit_i2f(frame))
+            parts.append(self.emit.emit_re_op(op, res_t, frame))
+            return "".join(parts), BoolType()
 
-        tt = lt  # unified operand type
+        # ---------- Bằng/khác: ==, != (số/bool/chuỗi) ----------
+        if op in ["==", "!="]:
+            lc, lt = self.visit(node.left, Access(frame, o.sym))
+            rc, rt = self.visit(node.right, Access(frame, o.sym))
 
-        if op in ["+", "-"]:
-            code += self.emit.emit_addop(op, tt, frame)
-            return code, tt
-        if op in ["*", "/"]:
-            if op == "/" and isinstance(tt, IntType):
-                lc2, _ = self.visit(node.left, Access(frame, o.sym))
-                rc2, _ = self.visit(node.right, Access(frame, o.sym))
-                code = lc2 + self.emit.emit_i2f(frame) + rc2 + self.emit.emit_i2f(frame)
-                code += self.emit.emit_mulop("/", FloatType(), frame)
-                return code, FloatType()
-            code += self.emit.emit_mulop(op, tt, frame)
-            return code, tt
-        if op == "%":
-            code += self.emit.emit_mod(frame)
-            return code, tt
-        if op in ["==", "!=", "<", ">", "<=", ">="]:
-            code += self.emit.emit_re_op(op, tt, frame)
-            return code, BoolType()
-        if op == "&&":
-            code += self.emit.emit_andop(frame)
-            return code, BoolType()
-        if op == "||":
-            code += self.emit.emit_orop(frame)
-            return code, BoolType()
+            # String: dùng equals(Object)
+            if isinstance(lt, StringType) and isinstance(rt, StringType):
+                parts = []
+                parts.append(lc)   # this
+                parts.append(rc)   # arg
+                parts.append(self.emit.emit_invoke_virtual(
+                    "java/lang/String/equals",
+                    FunctionType([ClassType("java/lang/Object")], BoolType()),
+                    frame
+                ))
+                if op == "!=":
+                    parts.append(self.emit.emit_not(BoolType(), frame))
+                return "".join(parts), BoolType()
 
-        raise NotImplementedError(f"Operator {op} not implemented for type {type(tt).__name__}")
+            # số/bool
+            res_t = unify_num_types(lt, rt) if isinstance(lt, (IntType, FloatType)) and isinstance(rt, (IntType, FloatType)) else lt
+            parts = [lc, rc]
+            if isinstance(res_t, FloatType):
+                if isinstance(lt, IntType):
+                    parts.insert(1, self.emit.emit_i2f(frame))
+                if isinstance(rt, IntType):
+                    parts.append(self.emit.emit_i2f(frame))
+            parts.append(self.emit.emit_re_op(op, res_t if isinstance(res_t, (IntType, FloatType)) else IntType(), frame))
+            return "".join(parts), BoolType()
+
+        # ---------- Logic: and / or (&& / ||) short-circuit ----------
+        if op in ["and", "&&"]:
+            false_label = frame.get_new_label()
+            end_label = frame.get_new_label()
+            code = []
+            lc, _ = self.visit(node.left, Access(frame, o.sym))
+            code.append(lc)
+            code.append(self.emit.emit_if_false(false_label, frame))
+            rc, _ = self.visit(node.right, Access(frame, o.sym))
+            code.append(rc)
+            code.append(self.emit.emit_if_false(false_label, frame))
+            code.append(self.emit.emit_push_const("true", BoolType(), frame))
+            code.append(self.emit.emit_goto(end_label, frame))
+            code.append(self.emit.emit_label(false_label, frame))
+            code.append(self.emit.emit_push_const("false", BoolType(), frame))
+            code.append(self.emit.emit_label(end_label, frame))
+            return "".join(code), BoolType()
+
+        if op in ["or", "||"]:
+            true_label = frame.get_new_label()
+            end_label = frame.get_new_label()
+            code = []
+            lc, _ = self.visit(node.left, Access(frame, o.sym))
+            code.append(lc)
+            code.append(self.emit.emit_if_true(true_label, frame))
+            rc, _ = self.visit(node.right, Access(frame, o.sym))
+            code.append(rc)
+            code.append(self.emit.emit_if_true(true_label, frame))
+            code.append(self.emit.emit_push_const("false", BoolType(), frame))
+            code.append(self.emit.emit_goto(end_label, frame))
+            code.append(self.emit.emit_label(true_label, frame))
+            code.append(self.emit.emit_push_const("true", BoolType(), frame))
+            code.append(self.emit.emit_label(end_label, frame))
+            return "".join(code), BoolType()
+
+        # ---------- Fallback ----------
+        lc, lt = self.visit(node.left, Access(frame, o.sym))
+        rc, rt = self.visit(node.right, Access(frame, o.sym))
+        raise Exception(f"Illegal Operand: Operator {op} not implemented for types {type(lt).__name__}, {type(rt).__name__}")
+
+
+
+
+
+
+
 
     def visit_unary_op(self, node: "UnaryOp", o: Access = None):
         frame = o.frame
@@ -628,3 +839,5 @@ class CodeGenerator(ASTVisitor):
             self.emit.emit_push_const('"' + node.value + '"', StringType(), o.frame),
             StringType(),
         )
+    
+    
